@@ -1,0 +1,69 @@
+version: "3"
+services:
+  2fauth:
+    image: 2fauth/2fauth
+    container_name: 2fauth
+    depends_on:
+      - 2fauth-db
+    volumes:
+      - ./2fauth:/2fauth
+    environment:
+      - APP_HOST: rbarberena-2fa_1
+      - APP_PORT: 3000
+      - APP_NAME=2FAuth
+      - APP_ENV=production
+      - APP_TIMEZONE=UTC
+      - APP_DEBUG=true
+      - SITE_OWNER=admin@example.com
+      - APP_KEY=2vUV9QVID3XRhaNFsv0OmR7MYuU37QgQ
+      - APP_URL=https://2fa.rbarberena.me/
+      - IS_DEMO_APP=false
+      - LOG_CHANNEL=daily
+      - LOG_LEVEL=notice
+      # Configuración de la base de datos MySQL
+      - DB_CONNECTION=mysql
+      - DB_HOST=2fauth-db
+      - DB_PORT=3306
+      - DB_DATABASE=2fauth_db
+      - DB_USERNAME=2fauth_user
+      - DB_PASSWORD=securepassword  # Cambia esta contraseña
+      - CACHE_DRIVER=file
+      - SESSION_DRIVER=file
+      - MAIL_MAILER=log
+      - MAIL_HOST=smtp.mailtrap.io
+      - MAIL_PORT=2525
+      - MAIL_USERNAME=null
+      - MAIL_PASSWORD=null
+      - MAIL_ENCRYPTION=null
+      - MAIL_FROM_NAME="2FAuth App"
+      - MAIL_FROM_ADDRESS=admin@example.com
+      - MAIL_VERIFY_SSL_PEER=true
+      - THROTTLE_API=60
+      - LOGIN_THROTTLE=5
+      - AUTHENTICATION_GUARD=web-guard
+      - AUTHENTICATION_LOG_RETENTION=365
+      - WEBAUTHN_NAME=2FAuth
+      - WEBAUTHN_USER_VERIFICATION=preferred
+      - TRUSTED_PROXIES=*
+      - BROADCAST_DRIVER=log
+      - QUEUE_DRIVER=sync
+      - SESSION_LIFETIME=120
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+
+  2fauth-db:
+    image: mysql:5.7
+    container_name: 2fauth-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword  # Cambia esta contraseña
+      - MYSQL_DATABASE=2fauth_db
+      - MYSQL_USER=2fauth_user
+      - MYSQL_PASSWORD=securepassword  # Cambia esta contraseña
+    volumes:
+      - 2fauth-db-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+volumes:
+  2fauth-db-data:
