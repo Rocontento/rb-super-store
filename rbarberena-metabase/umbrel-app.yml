@@ -1,15 +1,15 @@
 manifestVersion: 1
-id: rbarberena-2fa
-name: 2FA
+id: rbarberena-metabase
+name: Metabase
 tagline: Replace this tagline with your app's tagline
-icon: https://svgur.com/i/mvA.svg
+icon: https://pbs.twimg.com/profile_images/961380992727465985/4unoiuHt_400x400.jpg
 category: Development
-version: "2.2.0"
-port: 8000
+version: "1.0.0"
+port: 44123
 description: >-
-  Descripcion de 2FA
+  Descripcion Metabase
 
-developer: Umbrel
+developer: Metabase
 website: https://umbrel.com
 submitter: Umbrel
 submission: https://github.com/getumbrel/umbrel-hello-world-app
