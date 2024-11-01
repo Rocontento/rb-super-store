@@ -6,6 +6,9 @@ services:
       APP_HOST: 2fauth_server_1
       APP_PORT: 8000
     container_name: 2fauth_app_proxy_1
+    depends_on:
+      - server
+    restart: on-failure
 
   server:
     image: 2fauth/2fauth
