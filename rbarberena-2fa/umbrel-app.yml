@@ -4,7 +4,7 @@ name: 2FA
 tagline: Replace this tagline with your app's tagline
 icon: https://svgur.com/i/mvA.svg
 category: Development
-version: "1.0.0"
+version: "2.0.0"
 port: 3000
 description: >-
   Descripcion de 2FA

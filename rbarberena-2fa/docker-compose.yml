@@ -1,19 +1,26 @@
-version: "3"
+version: '3.7'
+
 services:
-  2fauth:
+  app_proxy:
+    environment:
+      APP_HOST: 2fauth_server_1
+      APP_PORT: 8000
+    container_name: 2fauth_app_proxy_1
+
+  server:
     image: 2fauth/2fauth
-    container_name: 2fauth
+    container_name: 2fauth_server_1
     depends_on:
       - 2fauth-db
     volumes:
-      - ./2fauth:/2fauth
+      - ${APP_DATA_DIR}/2fauth:/2fauth
+    ports:
+      - "8000:8000"
     environment:
-      - APP_HOST: rbarberena-2fa_1
-      - APP_PORT: 3000
       - APP_NAME=2FAuth
       - APP_ENV=production
       - APP_TIMEZONE=UTC
-      - APP_DEBUG=true
+      - APP_DEBUG=false
       - SITE_OWNER=admin@example.com
       - APP_KEY=2vUV9QVID3XRhaNFsv0OmR7MYuU37QgQ
       - APP_URL=https://2fa.rbarberena.me/
@@ -51,6 +58,7 @@ services:
       - REDIS_HOST=127.0.0.1
       - REDIS_PASSWORD=null
       - REDIS_PORT=6379
+    restart: on-failure
 
   2fauth-db:
     image: mysql:5.7
@@ -61,7 +69,8 @@ services:
       - MYSQL_USER=2fauth_user
       - MYSQL_PASSWORD=securepassword  # Cambia esta contraseña
     volumes:
-      - 2fauth-db-data:/var/lib/mysql
+      - ${APP_DATA_DIR}/2fauth-db:/var/lib/mysql
+    restart: on-failure
     ports:
       - "3306:3306"
 
