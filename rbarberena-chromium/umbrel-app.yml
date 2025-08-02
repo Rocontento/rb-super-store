@@ -4,7 +4,7 @@ name: Firefox
 tagline: The open-source browser project
 category: networking
 version: "2.0.1"
-port: 5800
+port: 5801
 description: >-
   ⚠️ Removal Notice: The Chromium app has been disabled as there are no more updates that work without HTTPS.
 
