@@ -1,6 +1,6 @@
 manifestVersion: 1.2
 id: rbarberena-chromium
-name: Chromium
+name: Firefox
 tagline: The open-source browser project
 category: networking
 version: "8d3cb5f1"
