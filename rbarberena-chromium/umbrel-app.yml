@@ -18,11 +18,11 @@ repo: https://github.com/linuxserver/docker-chromium
 support: https://discourse.linuxserver.io/
 dependencies: []
 path: ""
-icon: icon.svg
+icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/3c1eab44221a9dcbc03ab69cc38e67735012d4bf/rbarberena-chromium/icon.svg
 gallery:
-  - 1.jpg
-  - 2.jpg
-  - 3.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/1.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/2.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/3.jpg
 releaseNotes: >-
   This release includes various new features, security and performance improvements.
 
