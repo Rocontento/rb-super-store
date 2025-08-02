@@ -3,14 +3,19 @@ services:
   app_proxy:
     environment:
       APP_HOST: chromium_chromium_1
-      APP_PORT: 3000
+      APP_PORT: 5800
 
   chromium:
     image: jlesage/firefox:v1.18.0
+    ports:
+      - "5800:5800"
     environment:
       - PUID=1000
       - PGID=1000
+      - DISPLAY_WIDTH=730
+      - DISPLAY_HEIGHT=900
+      - X11VNC_EXTRA_OPTS=-nocursor
     volumes:
       - ${APP_DATA_DIR}/data:/config
-    shm_size: "1gb"
+    shm_size: 256M
     restart: on-failure
