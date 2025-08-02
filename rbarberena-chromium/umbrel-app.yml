@@ -3,7 +3,7 @@ id: rbarberena-chromium
 name: Firefox
 tagline: The open-source browser project
 category: networking
-version: "2.0.6"
+version: "2.0.7"
 port: 5900
 description: >-
   ⚠️ Removal Notice: The Chromium app has been disabled as there are no more updates that work without HTTPS.
