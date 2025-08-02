@@ -10,7 +10,8 @@ services:
       - DISPLAY_WIDTH=1024
       - DISPLAY_HEIGHT=768
       - X11VNC_EXTRA_OPTS=-nocursor
-      - FF_KIOSK: "1" # Enable kiosk mode
+      - FF_KIOSK=1
+      - FF_OPEN_URL=https://umbrel.local:8123
     volumes:
       - ${APP_DATA_DIR}/data:/config
     shm_size: 256M
