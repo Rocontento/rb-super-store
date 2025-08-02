@@ -6,7 +6,7 @@ services:
       APP_PORT: 3000
 
   chromium:
-    image: ghcr.io/linuxserver/chromium:version-8d3cb5f1@sha256:d7c5f7faf5fe524117fd73c4d446e1bf81bccd0d64d073a30b8c9819fdf105d6
+    image: jlesage/firefox:v1.18.0
     environment:
       - PUID=1000
       - PGID=1000
