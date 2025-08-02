@@ -3,7 +3,7 @@ services:
   chromium:
     image: jlesage/firefox:v1.18.0
     ports:
-      - "5801:5801"
+      - "5900:5900"
     environment:
       - PUID=1000
       - PGID=1000
