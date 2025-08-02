@@ -1,10 +1,5 @@
 version: "3.7"
 services:
-  app_proxy:
-    environment:
-      APP_HOST: chromium_chromium_1
-      APP_PORT: 5801
-
   chromium:
     image: jlesage/firefox:v1.18.0
     ports:
