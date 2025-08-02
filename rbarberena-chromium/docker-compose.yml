@@ -7,9 +7,10 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - DISPLAY_WIDTH=730
-      - DISPLAY_HEIGHT=900
+      - DISPLAY_WIDTH=1024
+      - DISPLAY_HEIGHT=768
       - X11VNC_EXTRA_OPTS=-nocursor
+      - FF_KIOSK: "1" # Enable kiosk mode
     volumes:
       - ${APP_DATA_DIR}/data:/config
     shm_size: 256M
