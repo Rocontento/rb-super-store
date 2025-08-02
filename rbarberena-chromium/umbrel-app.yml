@@ -1,5 +1,5 @@
 manifestVersion: 1.2
-id: chromium
+id: rbarberena-chromium
 name: Chromium
 tagline: The open-source browser project
 category: networking
@@ -30,4 +30,4 @@ releaseNotes: >-
 
 
   Full release notes can be found at https://developer.chrome.com/release-notes
-disabled: false
+
