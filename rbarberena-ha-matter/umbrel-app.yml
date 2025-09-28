@@ -1,6 +1,6 @@
 manifestVersion: 1.2
 id: rbarberena-ha-matter
-name: Home Assistant Matter
+name: HA Matter
 tagline: Expose devices from Home Assistant as Matter devices
 category: networking
 version: "v3.0.1"
