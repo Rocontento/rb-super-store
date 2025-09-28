@@ -1,0 +1,30 @@
+manifestVersion: 1.2
+id: rbarberena-ha-matter
+name: Home Assistant Matter
+tagline: Expose devices from Home Assistant as Matter devices
+category: networking
+version: "v3.0.0-alpha.87"
+port: 5900
+description: >-
+  This project simulates bridges to publish your entities from Home Assistant to any Matter-compatible controller like Alexa, Apple Home or Google Home. Using Matter, those can be connected easily using local communication without the need of port forwarding etc. 
+website: https://www.chromium.org/Home/
+submitter: Rbarberena
+submission: https://github.com/getumbrel/umbrel-apps/pull/1888
+repo: https://github.com/linuxserver/docker-chromium
+support: https://discourse.linuxserver.io/
+dependencies: []
+path: ""
+icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/3c1eab44221a9dcbc03ab69cc38e67735012d4bf/rbarberena-chromium/icon.svg
+gallery:
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/1.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/2.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/3.jpg
+releaseNotes: >-
+  This release includes various new features, security and performance improvements.
+
+
+  It is recommended to update to this version for an enhanced browsing experience and increased security.
+
+
+  Full release notes can be found at https://developer.chrome.com/release-notes
+
