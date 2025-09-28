@@ -3,7 +3,7 @@ id: rbarberena-ha-matter
 name: HA Matter
 tagline: Expose devices from Home Assistant as Matter devices
 category: networking
-version: "v3.0.1"
+version: "v3.0.2"
 port: 8482
 description: >-
   This project simulates bridges to publish your entities from Home Assistant to any Matter-compatible controller like Alexa, Apple Home or Google Home. Using Matter, those can be connected easily using local communication without the need of port forwarding etc. 
