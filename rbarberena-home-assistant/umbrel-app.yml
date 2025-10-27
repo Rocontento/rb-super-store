@@ -1,8 +1,8 @@
 manifestVersion: 1.1
 id: rbarberena-home-assistant
 category: automation
-name: Home Assistant
-version: "2025.10.3"
+name: Home Assistant 2
+version: "2025.10.5"
 tagline: Home automation that puts local control & privacy first
 description: >-
   Open source home automation that puts local control and privacy
