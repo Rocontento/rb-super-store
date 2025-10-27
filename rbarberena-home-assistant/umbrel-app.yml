@@ -29,10 +29,11 @@ dependencies: []
 repo: https://github.com/home-assistant/core
 support: https://community.home-assistant.io
 port: 81234 
+icon: https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/34cfc1be1818ac94d2c255449eabf8270c511159/home-assistant/icon.svg
 gallery:
-  - 1.jpg
-  - 2.jpg
-  - 3.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/home-assistant/1.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/home-assistant/2.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/home-assistant/3.jpg
 path: ""
 defaultUsername: ""
 defaultPassword: ""
