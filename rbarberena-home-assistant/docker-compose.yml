@@ -5,7 +5,7 @@ services:
     image: homeassistant/home-assistant:stable
     network_mode: bridge
     ports:
-      - "81234:8123"
+      - "8124:8123"
     # UI at default port 8123
     privileged: true
     volumes:
