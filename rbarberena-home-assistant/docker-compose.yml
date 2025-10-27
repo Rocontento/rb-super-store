@@ -3,7 +3,7 @@ version: "3.7"
 services:
   server:
     image: homeassistant/home-assistant:stable
-    network_mode: host
+    network_mode: bridge
     ports:
       - "81234:8123"
     # UI at default port 8123
