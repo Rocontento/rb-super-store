@@ -1,0 +1,48 @@
+manifestVersion: 1.1
+id: rbarberena-openthread
+category: automation
+name: Z OpenThread
+version: "2025.10.7"
+tagline: Openthread Border Router for Thread network connectivity
+description: >-
+  OpenThread is an open-source implementation of the Thread networking protocol, designed to provide secure and reliable connectivity for Internet of Things (IoT) devices.
+
+  This application serves as a border router, enabling communication between Thread networks and other IP-based networks, such as Wi-Fi or Ethernet.
+
+  By integrating OpenThread into your network infrastructure, you can enhance the interoperability and scalability of your IoT ecosystem, facilitating seamless device communication and management.
+developer: OpenThread Community
+website: https://openthread.io
+dependencies: []
+repo: https://github.com/home-assistant/core
+support: https://community.home-assistant.io
+port: 8124
+icon: https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/34cfc1be1818ac94d2c255449eabf8270c511159/home-assistant/icon.svg
+gallery:
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/home-assistant/1.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/home-assistant/2.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/home-assistant/3.jpg
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+torOnly: false
+permissions:
+  - STORAGE_DOWNLOADS
+releaseNotes: >-
+  This release includes various improvements and bug fixes across multiple integrations.
+
+
+  Key highlights:
+    - Improved handling of unavailable OAuth implementations for August and Yale integrations
+    - Enhanced Bluetooth discovery for devices with alternating advertisement names
+    - Various fixes and improvements for integrations like AsusWRT, PushSafer, and OpenUV
+
+
+  Other notable changes:
+    - Multiple URL and string updates to improve localization and configuration flows
+    - Dependency updates for several integrations including Alexa Devices, Probe Plus, and VeSync
+    - Corrections and enhancements for various sensors and device classes
+
+
+  Full release notes are found at https://github.com/home-assistant/core/releases
+submitter: Umbrel
+submission: https://github.com/getumbrel/umbrel/commit/9d79cffae608c6a6ab077f859c1c531a581cf926

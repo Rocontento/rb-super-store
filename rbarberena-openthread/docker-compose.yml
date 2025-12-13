@@ -1,0 +1,30 @@
+version: "3.9"
+services:
+  multipan:
+    container_name: multipan
+    image: b2un0/silabs-multipan-docker:latest
+    restart: unless-stopped
+    privileged: true # don't change this !
+    network_mode: host # don't change this !
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
+    volumes:
+      - ${APP_DATA_DIR}/data:/data
+      - /dev:/dev
+      - /run/dbus:/run/dbus:ro
+    environment:
+      DEVICE: "/dev/ttyUSB0" # only change if your have multiple devices
+      BAUDRATE: "460800"
+      FLOW_CONTROL: "true" # change to false if you not using SkyConnect
+
+      BACKBONE_IF: "eth0" # change this to your network interface
+      OTBR_REST_LISTEN_PORT: "8081" # use this within the HomeAssistant integration
+      OTBR_WEB_PORT: "8086"
+
+      # ZIGBEED environment variables
+      EZSP_LISTEN_PORT: "20108" #
+
+      # UNIVERSAL FLASHER variables
+      AUTOFLASH_FIRMWARE: 0 # change to 1 for firmware update
+      FIRMWARE: "NabuCasa_SkyConnect_RCP_v4.3.1_rcp-uart-hw-802154_460800.gbl"
