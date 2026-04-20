@@ -20,4 +20,4 @@ icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/refs/heads/mas
 gallery:
   - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/1.jpg
 releaseNotes: >-
-  Updated defaults for Umbrel Home Assistant compatibility and made URL/token explicitly configurable via environment variables.
+  Switched to the actively maintained RiDDiX image fork, updated defaults for Umbrel Home Assistant compatibility, and made URL/token explicitly configurable via environment variables.
