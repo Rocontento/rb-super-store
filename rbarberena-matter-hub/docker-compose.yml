@@ -7,7 +7,7 @@ services:
     # Required for Matter discovery and local network communication
     network_mode: host
     environment:
-      - HAMH_HOME_ASSISTANT_URL=${HAMH_HOME_ASSISTANT_URL:-http://homeassistant.local:8123/}
+      - HAMH_HOME_ASSISTANT_URL=${HAMH_HOME_ASSISTANT_URL:-http://127.0.0.1:8124/}
       - HAMH_HOME_ASSISTANT_ACCESS_TOKEN=${HAMH_HOME_ASSISTANT_ACCESS_TOKEN:-}
       - HAMH_LOG_LEVEL=info
       - HAMH_HTTP_PORT=8482

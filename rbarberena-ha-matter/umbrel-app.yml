@@ -3,10 +3,13 @@ id: rbarberena-ha-matter
 name: HA Matter
 tagline: Expose devices from Home Assistant as Matter devices
 category: networking
-version: "v3.0.2"
+version: "v3.0.3"
 port: 8482
 description: >-
-  This project simulates bridges to publish your entities from Home Assistant to any Matter-compatible controller like Alexa, Apple Home or Google Home. Using Matter, those can be connected easily using local communication without the need of port forwarding etc. 
+  This project simulates bridges to publish your entities from Home Assistant to any Matter-compatible controller like Alexa, Apple Home or Google Home.
+
+  Default URL points to Umbrel Home Assistant (http://127.0.0.1:8124/).
+  Set HAMH_HOME_ASSISTANT_URL and HAMH_HOME_ASSISTANT_ACCESS_TOKEN (Long-Lived Access Token from Home Assistant profile) before starting if your setup differs.
 submitter: Rbarberena
 submission: 
 repo: 
@@ -17,5 +20,4 @@ icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/refs/heads/mas
 gallery:
   - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/1.jpg
 releaseNotes: >-
-  First release. Fix some issues with the previous alpha release.
-
+  Updated defaults for Umbrel Home Assistant compatibility and made URL/token explicitly configurable via environment variables.
