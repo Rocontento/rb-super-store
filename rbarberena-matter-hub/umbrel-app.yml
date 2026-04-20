@@ -4,7 +4,7 @@ name: Matter Hub
 tagline: Expose Home Assistant entities as Matter devices
 icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/refs/heads/master/rbarberena-matter-hub/icon.png
 category: networking
-version: "1.0.0"
+version: "2.0.38"
 port: 8482
 description: >-
   Home Assistant Matter Hub bridges your Home Assistant entities to Matter-compatible ecosystems.
@@ -19,7 +19,7 @@ submission: ""
 repo: https://github.com/riddix/home-assistant-matter-hub
 support: https://github.com/riddix/home-assistant-matter-hub/issues
 releaseNotes: >-
-  Initial release in this app store using the Riddix image.
+  Community store release using the RiDDiX Home Assistant Matter Hub stable channel (v2.0.38 at publication time).
 dependencies: []
 path: ""
 defaultUsername: ""
