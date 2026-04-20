@@ -10,7 +10,7 @@ description: >-
 
   Configure your Home Assistant URL and access token in the app's docker-compose environment variables.
 submitter: Rbarberena
-submission:
+submission: ""
 repo: https://github.com/riddix/home-assistant-matter-hub
 support: https://github.com/riddix/home-assistant-matter-hub/issues
 dependencies: []
