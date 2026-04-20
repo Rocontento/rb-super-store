@@ -1,3 +1,5 @@
+version: "3.7"
+
 services:
   matter-hub:
     image: ghcr.io/riddix/home-assistant-matter-hub:latest
