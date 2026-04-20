@@ -2,6 +2,7 @@ services:
   matter-hub:
     image: ghcr.io/riddix/home-assistant-matter-hub:latest
     restart: unless-stopped
+    # Required for Matter discovery and local network communication
     network_mode: host
     environment:
       - HAMH_HOME_ASSISTANT_URL=${HAMH_HOME_ASSISTANT_URL:-http://homeassistant.local:8123/}

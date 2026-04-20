@@ -9,6 +9,8 @@ description: >-
   Home Assistant Matter Hub bridges your Home Assistant entities to Matter-compatible ecosystems.
 
   Configure your Home Assistant URL and access token in the app's docker-compose environment variables.
+
+  The app web interface is exposed on port 8482.
 submitter: Rbarberena
 submission: ""
 repo: https://github.com/riddix/home-assistant-matter-hub
