@@ -1,0 +1,22 @@
+manifestVersion: 1.2
+id: rbarberena-matter-hub
+name: Matter Hub
+tagline: Expose Home Assistant entities as Matter devices
+category: networking
+version: "1.0.0"
+port: 8482
+description: >-
+  Home Assistant Matter Hub bridges your Home Assistant entities to Matter-compatible ecosystems.
+
+  Configure your Home Assistant URL and access token in the app's docker-compose environment variables.
+submitter: Rbarberena
+submission:
+repo: https://github.com/riddix/home-assistant-matter-hub
+support: https://github.com/riddix/home-assistant-matter-hub/issues
+dependencies: []
+path: ""
+icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/refs/heads/master/rbarberena-ha-matter/icon.png
+gallery:
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/1.jpg
+releaseNotes: >-
+  Initial release in this app store using the Riddix image.
