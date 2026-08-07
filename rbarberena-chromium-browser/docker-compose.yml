@@ -1,0 +1,42 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      # Format: <app-id>_<docker-service-name>_1
+      APP_HOST: rbarberena-chromium-browser_chromium_1
+      APP_PORT: 5800
+
+  chromium:
+    image: jlesage/chromium:v26.07.3@sha256:7514667737463e4302d5b58bd07311790dd29c816d4a980143a96de85cf0210e
+    restart: on-failure
+    environment:
+      - USER_ID=1000
+      - GROUP_ID=1000
+      - TZ=Etc/UTC
+      # noVNC web UI. Works over plain HTTP, so it renders correctly behind
+      # umbrelOS' app_proxy (KasmVNC-based images need HTTPS and break here).
+      - WEB_LISTENING_PORT=5800
+      - DISPLAY_WIDTH=1920
+      - DISPLAY_HEIGHT=1080
+      - DARK_MODE=1
+      # Stream the browser's audio to the noVNC page.
+      - WEB_AUDIO=1
+      # Relaunch Chromium automatically if it is closed or crashes.
+      - KEEP_APP_RUNNING=1
+      # umbrelOS' app_proxy already requires your Umbrel password, so the
+      # container's own auth layer is left off.
+      - WEB_AUTHENTICATION=0
+      - SECURE_CONNECTION=0
+      # Uncomment to pass extra Chromium flags, or to open a fixed page:
+      # - CHROMIUM_CUSTOM_ARGS=--lang=es --start-maximized
+      # - CHROMIUM_APP_URL=http://umbrel.local
+    volumes:
+      # Profile, bookmarks, extensions and settings live here.
+      - ${APP_DATA_DIR}/data:/config
+    # Chromium crashes on media-heavy sites with Docker's default 64 MB.
+    shm_size: "1gb"
+    # Lets Chromium enable its own renderer sandbox. Remove this if you would
+    # rather not grant the capability; Chromium then runs with --no-sandbox.
+    cap_add:
+      - SYS_ADMIN
