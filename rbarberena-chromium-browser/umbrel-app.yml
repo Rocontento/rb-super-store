@@ -1,0 +1,80 @@
+manifestVersion: 1.1
+id: rbarberena-chromium-browser
+name: Chromium
+tagline: Un navegador Chromium completo dentro de tu navegador
+category: networking
+version: "26.07.3"
+port: 5800
+description: >-
+  Chromium es el proyecto de navegador de código abierto en el que se basan
+  Google Chrome, Microsoft Edge, Brave y Opera.
+
+
+  Esta app ejecuta un escritorio Chromium real dentro de tu Umbrel y te lo
+  entrega en tu propio navegador a través de noVNC, así que puedes usarlo desde
+  cualquier ordenador, tablet o móvil de tu red sin instalar nada.
+
+
+  ¿Para qué sirve?
+
+
+  - Navegar desde la IP de tu Umbrel en lugar de la de tu dispositivo.
+
+  - Abrir paneles de la red local (routers, cámaras, Home Assistant) sin salir
+    de tu red.
+
+  - Mantener sesiones abiertas 24/7 en un equipo que siempre está encendido.
+
+  - Aislar la navegación del resto de tus dispositivos.
+
+
+  El perfil, los marcadores, las extensiones y las sesiones se guardan en el
+  disco de tu Umbrel, así que sobreviven a los reinicios y a las
+  actualizaciones de la app.
+
+
+  Notas
+
+
+  - Esta versión usa noVNC en lugar de KasmVNC. KasmVNC necesita HTTPS para
+    reproducir vídeo y audio, y por eso la app de Chromium anterior se veía en
+    negro o iba a tirones dentro de umbrelOS. noVNC funciona sobre HTTP plano,
+    que es como umbrelOS sirve las apps.
+
+  - El portapapeles del sistema y las notificaciones del contenedor requieren
+    HTTPS y quedan desactivados; copiar y pegar dentro de la ventana de
+    Chromium funciona con normalidad.
+
+  - Chromium tiene acceso completo a tu red local. Instálalo solo si confías en
+    quien tiene acceso a tu Umbrel.
+developer: The Chromium Project
+website: https://www.chromium.org/Home/
+submitter: Rocontento
+submission: https://github.com/Rocontento/rb-super-store
+repo: https://github.com/jlesage/docker-chromium
+support: https://github.com/jlesage/docker-chromium/issues
+dependencies: []
+path: ""
+icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/master/rbarberena-chromium-browser/icon.svg
+gallery:
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/1.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/2.jpg
+  - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/3.jpg
+releaseNotes: >-
+  Primera versión de esta app.
+
+
+  Reemplaza la app de Chromium anterior, que estaba basada en una imagen
+  KasmVNC y no funcionaba bien detrás del proxy HTTP de umbrelOS.
+
+
+  - Imagen jlesage/chromium con interfaz web noVNC, que sí funciona sobre HTTP.
+
+  - Audio del navegador transmitido a la pestaña.
+
+  - 1 GB de memoria compartida para que YouTube y otras webs con vídeo no
+    tumben el navegador.
+
+  - Modo oscuro y reinicio automático de Chromium activados.
+
+  - Imagen anclada por digest para que las actualizaciones sean reproducibles.
