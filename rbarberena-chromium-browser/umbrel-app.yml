@@ -3,7 +3,7 @@ id: rbarberena-chromium-browser
 name: Chromium
 tagline: Un navegador Chromium completo dentro de tu navegador
 category: networking
-version: "26.07.3"
+version: "8d3cb5f1"
 port: 5800
 description: >-
   Chromium es el proyecto de navegador de código abierto en el que se basan
@@ -11,8 +11,8 @@ description: >-
 
 
   Esta app ejecuta un escritorio Chromium real dentro de tu Umbrel y te lo
-  entrega en tu propio navegador a través de noVNC, así que puedes usarlo desde
-  cualquier ordenador, tablet o móvil de tu red sin instalar nada.
+  entrega en tu propio navegador, así que puedes usarlo desde cualquier
+  ordenador, tablet o móvil de tu red sin instalar nada.
 
 
   ¿Para qué sirve?
@@ -36,14 +36,17 @@ description: >-
   Notas
 
 
-  - Esta versión usa noVNC en lugar de KasmVNC. KasmVNC necesita HTTPS para
-    reproducir vídeo y audio, y por eso la app de Chromium anterior se veía en
-    negro o iba a tirones dentro de umbrelOS. noVNC funciona sobre HTTP plano,
-    que es como umbrelOS sirve las apps.
+  - Usa la misma imagen que la app oficial de Chromium de Umbrel, anclada al
+    mismo build (linuxserver 8d3cb5f1). Es el último que se renderiza bien
+    sobre HTTP plano, que es como umbrelOS sirve las apps. Los builds
+    posteriores exigen HTTPS para WebCodecs y se quedan en negro.
 
-  - El portapapeles del sistema y las notificaciones del contenedor requieren
-    HTTPS y quedan desactivados; copiar y pegar dentro de la ventana de
-    Chromium funciona con normalidad.
+  - Al estar anclada a ese build, esta app NO recibe actualizaciones de
+    seguridad de Chromium. Tenlo en cuenta antes de usarla para navegar por
+    sitios que no controlas.
+
+  - El vídeo y el audio pueden ir limitados por esa misma razón: sin HTTPS no
+    hay WebCodecs y el streaming cae a un modo menos eficiente.
 
   - Chromium tiene acceso completo a tu red local. Instálalo solo si confías en
     quien tiene acceso a tu Umbrel.
@@ -51,8 +54,8 @@ developer: The Chromium Project
 website: https://www.chromium.org/Home/
 submitter: Rocontento
 submission: https://github.com/Rocontento/rb-super-store
-repo: https://github.com/jlesage/docker-chromium
-support: https://github.com/jlesage/docker-chromium/issues
+repo: https://github.com/linuxserver/docker-chromium
+support: https://discourse.linuxserver.io/
 dependencies: []
 path: ""
 icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/master/rbarberena-chromium-browser/icon.svg
@@ -61,20 +64,20 @@ gallery:
   - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/2.jpg
   - https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master/chromium/3.jpg
 releaseNotes: >-
-  Primera versión de esta app.
+  Cambia la imagen a linuxserver/chromium, la misma que usa la app oficial de
+  Chromium de Umbrel.
 
 
-  Reemplaza la app de Chromium anterior, que estaba basada en una imagen
-  KasmVNC y no funcionaba bien detrás del proxy HTTP de umbrelOS.
+  La versión anterior de esta app usaba jlesage/chromium, cuyo binario de
+  Chromium (base Alpine) moría con SIGILL en algunas CPUs y dejaba la pantalla
+  en negro. Este es un build distinto, con base Debian.
 
 
-  - Imagen jlesage/chromium con interfaz web noVNC, que sí funciona sobre HTTP.
+  - Imagen anclada por digest, igual que en la app oficial.
 
-  - Audio del navegador transmitido a la pestaña.
+  - 1 GB de memoria compartida para que las webs con vídeo no tumben el
+    navegador.
 
-  - 1 GB de memoria compartida para que YouTube y otras webs con vídeo no
-    tumben el navegador.
-
-  - Modo oscuro y reinicio automático de Chromium activados.
-
-  - Imagen anclada por digest para que las actualizaciones sean reproducibles.
+  - IMPORTANTE: si venías de la versión anterior, desinstala la app antes de
+    instalar esta. El perfil que quedó en disco es de otra imagen y no es
+    compatible.
