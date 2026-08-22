@@ -1,0 +1,102 @@
+manifestVersion: 1.1
+id: rbarberena-tiramisu
+name: Tiramisu
+tagline: Streaming BitTorrent en directo hacia tu Plex o Jellyfin, sin descargar nada
+category: media
+version: "v1.9.43"
+port: 9080
+description: >-
+  Tiramisu monta un sistema de ficheros virtual (FUSE) en el que cada archivo
+  .mkv parece un fichero normal en disco, pero cada byte se sirve en directo
+  desde un enjambre de BitTorrent en el momento en que el reproductor lo pide.
+
+
+  No hay descarga previa, no hay ficheros temporales y no ocupa espacio: Plex o
+  Jellyfin ven una biblioteca llena de películas y series que en realidad no
+  están ahí. El motor de torrents (GoStorm) corre dentro del mismo proceso que
+  la capa FUSE, así que no hay proxy HTTP por medio y la reproducción arranca
+  en aproximadamente un segundo, incluso en 4K HDR.
+
+
+  Es una alternativa auto-alojada a servicios de debrid tipo Real-Debrid: todo
+  ocurre en tu Umbrel, sin suscripciones y sin que tus datos salgan de casa.
+
+
+  Qué incluye
+
+
+  - Panel de control web para ajustar en caliente todos los parámetros del
+    motor y de FUSE, sin editar ficheros ni reiniciar.
+
+  - Dashboard de salud con gráfica de velocidad en tiempo real, streams
+    activos, pósters, estadísticas del sistema y logs.
+
+  - Motor de sincronización que descubre títulos populares en TMDB, busca el
+    mejor torrent en Prowlarr (con Torrentio como alternativa) y va llenando la
+    biblioteca solo, incluyendo packs de temporada para series.
+
+  - Webhooks de Plex y Jellyfin: al darle al play activa el modo prioridad y
+    prioriza las piezas que hacen falta ya.
+
+  - Lista de bloqueo de ~700.000 rangos de IP, refrescada cada 24 h.
+
+  - Baneo persistente de peers que envían datos corruptos.
+
+
+  Cómo empezar
+
+
+  1. Abre la app y ve a la pestaña de configuración (el panel de control está
+     en /control, el dashboard en /dashboard).
+
+  2. Pon tu API key de TMDB para que pueda descubrir títulos.
+
+  3. Opcionalmente configura Prowlarr y tu servidor de medios apuntando a la IP
+     de tu Umbrel, por ejemplo http://192.168.1.50:32400 para Plex. La
+     dirección 127.0.0.1 no vale: dentro del contenedor apunta al propio
+     Tiramisu, no a tu Umbrel.
+
+  4. Añade la carpeta virtual como biblioteca en Plex o Jellyfin. Está en
+     ~/umbrel/app-data/rbarberena-tiramisu/data/virtual dentro de tu Umbrel.
+
+
+  Avisos importantes
+
+
+  - Esta app necesita /dev/fuse, SYS_ADMIN y NET_ADMIN. Es un contenedor con
+    bastantes más privilegios de lo normal, porque monta un sistema de ficheros
+    real en el kernel. Instálala solo si te fías del proyecto.
+
+  - Si el contenedor no arranca y en los logs aparece algo sobre "shared
+    mount", entra por SSH a tu Umbrel y ejecuta: sudo mount --make-rshared /
+    y reinicia la app.
+
+  - Tú decides qué contenido descargas y reproduces. Comprueba qué es legal en
+    tu país antes de usarla.
+developer: MrRobotoGit
+website: https://github.com/MrRobotoGit/tiramisu
+submitter: Rocontento
+submission: https://github.com/Rocontento/rb-super-store
+repo: https://github.com/MrRobotoGit/tiramisu
+support: https://github.com/MrRobotoGit/tiramisu/issues
+dependencies: []
+path: "/dashboard"
+icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/master/rbarberena-tiramisu/icon.svg
+gallery:
+  - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/control_1.png
+  - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/health_monitor_1.png
+  - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/library.png
+releaseNotes: >-
+  Primera versión de Tiramisu empaquetada para Umbrel, anclada a la v1.9.43 por
+  digest.
+
+
+  - Configuración persistente en el disco de la app: el config.json se monta en
+    lectura/escritura para que los cambios del panel de control sobrevivan a
+    los reinicios.
+
+  - Estado del motor de torrents, logs y la carpeta de origen también
+    persistidos, en lugar de vivir dentro del contenedor.
+
+  - El montaje FUSE se propaga al host (rshared) para que Plex y Jellyfin
+    puedan leer los .mkv virtuales.

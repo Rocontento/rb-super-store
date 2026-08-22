@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Tiramisu">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a2c1a"/>
+      <stop offset="1" stop-color="#2b170d"/>
+    </linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6e2"/>
+      <stop offset="1" stop-color="#f2ddb4"/>
+    </linearGradient>
+    <linearGradient id="sponge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c98a4b"/>
+      <stop offset="1" stop-color="#a96a33"/>
+    </linearGradient>
+    <clipPath id="slice">
+      <path d="M120 150 h272 a24 24 0 0 1 24 24 v164 a24 24 0 0 1 -24 24 h-272 a24 24 0 0 1 -24 -24 v-164 a24 24 0 0 1 24 -24 z"/>
+    </clipPath>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- slice body -->
+  <g clip-path="url(#slice)">
+    <rect x="96" y="150" width="320" height="52" fill="#4a2c17"/>
+    <rect x="96" y="202" width="320" height="54" fill="url(#cream)"/>
+    <rect x="96" y="256" width="320" height="50" fill="url(#sponge)"/>
+    <rect x="96" y="306" width="320" height="56" fill="url(#cream)"/>
+  </g>
+
+  <!-- cocoa dusting -->
+  <g fill="#33190a" opacity="0.55">
+    <circle cx="140" cy="170" r="5"/>
+    <circle cx="182" cy="186" r="4"/>
+    <circle cx="228" cy="166" r="6"/>
+    <circle cx="272" cy="184" r="4"/>
+    <circle cx="316" cy="168" r="5"/>
+    <circle cx="360" cy="184" r="4"/>
+    <circle cx="392" cy="166" r="5"/>
+  </g>
+
+  <!-- play button: the slice is streamed, not stored -->
+  <circle cx="256" cy="282" r="62" fill="#2b170d" opacity="0.82"/>
+  <path d="M238 250 l52 32 -52 32 z" fill="#fff6e2"/>
+
+  <rect x="96" y="150" width="320" height="212" rx="24" fill="none" stroke="#f2ddb4" stroke-opacity="0.35" stroke-width="6"/>
+</svg>
