@@ -1,0 +1,57 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      # Format: <app-id>_<docker-service-name>_1
+      APP_HOST: rbarberena-tiramisu_tiramisu_1
+      APP_PORT: 9080
+
+  tiramisu:
+    image: mrrobotogit/tiramisu:v1.9.43@sha256:432af23b80c321bcb20cce206182fc9ffbccae9e03403a5a4bf477e18dd19330
+    restart: unless-stopped
+
+    # The whole product is a FUSE filesystem, so the container needs the FUSE
+    # device plus SYS_ADMIN to mount it. NET_ADMIN is for the torrent engine's
+    # NAT-PMP / iptables port-forwarding helper.
+    devices:
+      - /dev/fuse:/dev/fuse
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
+    security_opt:
+      - apparmor:unconfined
+
+    environment:
+      # Keep the Go heap under control: the default is "grow until the OOM
+      # killer notices". 2200MiB is what upstream recommends for a 4 GB box.
+      - GOMEMLIMIT=${TIRAMISU_GOMEMLIMIT:-2200MiB}
+      - GOGC=100
+      # The image defaults these to /usr/local, which is not persisted.
+      - MKV_PROXY_CONFIG_PATH=/config.json
+      - TIRAMISU_ROOT_PATH=/data
+      - TIRAMISU_STATE_DIR=/data/STATE
+      - TIRAMISU_LOG_DIR=/data/logs
+      - TIRAMISU_SOURCE_PATH=/mnt/tiramisu-mkv-real
+      - TIRAMISU_MOUNT_PATH=/mnt/tiramisu-mkv-virtual
+      # Printed in the logs when the mount goes stale, to tell the user which
+      # host path to `umount -l`.
+      - TIRAMISU_HOST_MOUNT_HINT=${APP_DATA_DIR}/data/virtual
+
+    volumes:
+      # Mounted read-write on purpose: the Control Panel saves settings back
+      # into this file. Shipped with the store so it exists on first boot.
+      - ${APP_DATA_DIR}/data/config.json:/config.json
+      # Torrent DB, bans, blocklist cache and logs.
+      - ${APP_DATA_DIR}/data/state:/data
+      # The .mkv stubs the library is built from.
+      - ${APP_DATA_DIR}/data/real:/mnt/tiramisu-mkv-real
+      # The FUSE mount itself. rshared propagates the mount out to the host so
+      # Plex/Jellyfin can read it; without it the host only ever sees an empty
+      # directory. Needs the host mount to be shared (systemd does this for /
+      # by default; see README.md if the container refuses to start).
+      - type: bind
+        source: ${APP_DATA_DIR}/data/virtual
+        target: /mnt/tiramisu-mkv-virtual
+        bind:
+          propagation: rshared
