@@ -20,10 +20,19 @@ services:
     security_opt:
       - apparmor:unconfined
 
+    # Hard ceiling. Without it a sync run can take the whole Umbrel down with
+    # it: GoStorm caches up to 128 MB of RAM per active torrent, and a Plex
+    # library scan opens enough files at once to keep ~20 of them hot. With a
+    # limit the kernel kills tiramisu alone and the container comes back,
+    # instead of the host OOM killer picking a victim among all your apps.
+    mem_limit: ${TIRAMISU_MEM_LIMIT:-1600m}
+
     environment:
-      # Keep the Go heap under control: the default is "grow until the OOM
-      # killer notices". 2200MiB is what upstream recommends for a 4 GB box.
-      - GOMEMLIMIT=${TIRAMISU_GOMEMLIMIT:-2200MiB}
+      # Soft limit on the Go heap: it makes the GC work harder as it gets
+      # close, so tiramisu mostly stays under mem_limit instead of being
+      # killed at it. Keep it well below mem_limit - the process also needs
+      # room for stacks, mmap and the FUSE buffers, which are not heap.
+      - GOMEMLIMIT=${TIRAMISU_GOMEMLIMIT:-1024MiB}
       - GOGC=100
       # The image defaults these to /usr/local, which is not persisted.
       - MKV_PROXY_CONFIG_PATH=/config.json

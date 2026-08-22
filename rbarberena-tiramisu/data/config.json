@@ -1,6 +1,6 @@
 {
-  "master_concurrency_limit": 25,
-  "read_ahead_budget_mb": 256,
+  "master_concurrency_limit": 8,
+  "read_ahead_budget_mb": 96,
   "metadata_cache_size_mb": 50,
   "write_buffer_size_kb": 64,
   "read_buffer_size_kb": 1024,
