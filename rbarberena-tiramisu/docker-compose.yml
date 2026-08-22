@@ -1,5 +1,3 @@
-version: "3.7"
-
 services:
   app_proxy:
     environment:
@@ -50,8 +48,6 @@ services:
       # Plex/Jellyfin can read it; without it the host only ever sees an empty
       # directory. Needs the host mount to be shared (systemd does this for /
       # by default; see README.md if the container refuses to start).
-      - type: bind
-        source: ${APP_DATA_DIR}/data/virtual
-        target: /mnt/tiramisu-mkv-virtual
-        bind:
-          propagation: rshared
+      # Short syntax is mandatory: umbreld's compose patcher calls .replace()
+      # on every volumes entry and crashes on the long (mapping) form.
+      - ${APP_DATA_DIR}/data/virtual:/mnt/tiramisu-mkv-virtual:rshared

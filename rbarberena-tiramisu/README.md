@@ -55,17 +55,18 @@ dentro de su contenedor. Edita el compose de la app de Plex
 (`~/umbrel/app-data/<app-de-plex>/docker-compose.yml`), añade a `volumes:`:
 
 ```yaml
-      - type: bind
-        source: /home/umbrel/umbrel/app-data/rbarberena-tiramisu/data/virtual
-        target: /media/tiramisu
-        bind:
-          propagation: rslave
+      - /home/umbrel/umbrel/app-data/rbarberena-tiramisu/data/virtual:/media/tiramisu:rslave
 ```
 
 y reinicia la app de Plex. Después añade `/media/tiramisu` como biblioteca.
 
 El `rslave` es lo que hace que Plex vea el montaje FUSE que crea Tiramisu; con
 un bind normal solo vería una carpeta vacía.
+
+Usa la sintaxis corta, no la larga (`type: bind` / `propagation:`). El parche
+de compose de `umbreld` da por hecho que cada entrada de `volumes` es un string
+y falla con `TypeError: volume?.replace is not a function` si encuentra un
+mapa.
 
 ## Estructura de datos
 
