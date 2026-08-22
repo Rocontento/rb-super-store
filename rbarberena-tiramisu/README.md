@@ -103,11 +103,67 @@ sudo umount -l ~/umbrel/app-data/rbarberena-tiramisu/data/virtual
 
 Y reinicia la app.
 
-**Consumo de memoria**
+**Se queda sin memoria / tumba el Umbrel entero**
 
-El límite del heap de Go se fija en `GOMEMLIMIT`, por defecto `2200MiB` (lo que
-recomienda upstream para una máquina de 4 GB). Si tu Umbrel tiene más RAM y
-quieres darle más margen, edítalo en el `docker-compose.yml` de la app.
+Los defaults de upstream asumen una máquina holgada. Los que más pesan:
+
+| Parámetro | Default | Efecto |
+|---|---|---|
+| GoStorm `CacheSize` | 128 MB **por torrent activo** | se multiplica por cada torrent caliente |
+| `master_concurrency_limit` | 25 | durante un escaneo permite hasta 20 simultáneos |
+| `read_ahead_budget_mb` | 256 | presupuesto global de lectura anticipada |
+
+Un `Run` del sync registra cientos de torrents, y el escaneo posterior de
+Plex/Jellyfin abre suficientes ficheros a la vez como para mantener ~20
+calientes. Sin techo, eso se lleva por delante el host.
+
+Esta app pone dos límites:
+
+- `mem_limit` (por defecto `1600m`): techo duro del contenedor. Si se pasa, el
+  kernel mata Tiramisu y el contenedor vuelve solo, en lugar de que el OOM
+  killer del host elija víctima entre todas tus apps.
+- `GOMEMLIMIT` (por defecto `1024MiB`): límite blando del heap de Go. Hace que
+  el recolector apriete al acercarse, así que normalmente no se llega a tocar
+  el techo duro.
+
+Si tu Umbrel va sobrado de RAM y quieres más margen, súbelos en el
+`docker-compose.yml` de la app manteniendo `GOMEMLIMIT` bastante por debajo de
+`mem_limit`: el proceso también necesita sitio para stacks, mmap y los buffers
+de FUSE, que no son heap.
+
+Para bajar el consumo aún más, en el Control Panel:
+
+- `master_concurrency_limit` → 6-8
+- `read_ahead_budget_mb` → 96
+- GoStorm `CacheSize` → 32-64 MB (está en la sección de ajustes de GoStorm, no
+  en `config.json`)
+
+Los dos primeros ya vienen ajustados en el `config.json` que trae esta app,
+pero solo aplican a instalaciones nuevas: si ya la tenías instalada, tu
+`config.json` no se toca y hay que cambiarlos a mano.
+
+**El primer escaneo de Plex va lentísimo**
+
+Es esperado, y viene avisado por upstream: el servidor de medios abre y cierra
+cientos de ficheros durante el análisis, y eso congestiona el motor. Espera a
+que termine el escaneo antes de intentar reproducir nada.
+
+Y desactiva en Plex todo lo que lea el fichero completo, o te descargarás la
+biblioteca entera de fondo: análisis multimedia exhaustivo, miniaturas de
+vista previa de vídeo, análisis de intensidad sonora y detección de
+intros/créditos.
+
+**No encuentro el token de Plex**
+
+El indicador de Plex del dashboard se pone verde solo con la URL, porque el
+health check hace un `GET /` sin autenticar. El token hace falta igualmente
+para los streams activos, los pósters, el refresco de biblioteca tras un sync
+y la watchlist. Sácalo del disco:
+
+```sh
+sudo grep -o 'PlexOnlineToken="[^"]*"' \
+  ~/umbrel/app-data/plex/data/config/Library/Application\ Support/Plex\ Media\ Server/Preferences.xml
+```
 
 ## Requisitos del contenedor
 
