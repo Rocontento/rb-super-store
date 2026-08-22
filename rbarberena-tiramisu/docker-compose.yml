@@ -25,14 +25,19 @@ services:
     # library scan opens enough files at once to keep ~20 of them hot. With a
     # limit the kernel kills tiramisu alone and the container comes back,
     # instead of the host OOM killer picking a victim among all your apps.
-    mem_limit: ${TIRAMISU_MEM_LIMIT:-1600m}
+    #
+    # Sized for the smallest box umbrelOS runs on: 4 GB total, sitting around
+    # 80% used with umbrelOS, Docker and a media server before tiramisu asks
+    # for anything. Raise it on a bigger box - this is a cap, not a
+    # reservation, but a cap above what the host can spare buys nothing.
+    mem_limit: ${TIRAMISU_MEM_LIMIT:-700m}
 
     environment:
       # Soft limit on the Go heap: it makes the GC work harder as it gets
       # close, so tiramisu mostly stays under mem_limit instead of being
       # killed at it. Keep it well below mem_limit - the process also needs
       # room for stacks, mmap and the FUSE buffers, which are not heap.
-      - GOMEMLIMIT=${TIRAMISU_GOMEMLIMIT:-1024MiB}
+      - GOMEMLIMIT=${TIRAMISU_GOMEMLIMIT:-448MiB}
       - GOGC=100
       # The image defaults these to /usr/local, which is not persisted.
       - MKV_PROXY_CONFIG_PATH=/config.json

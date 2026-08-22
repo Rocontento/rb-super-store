@@ -3,7 +3,7 @@ id: rbarberena-tiramisu
 name: Tiramisu
 tagline: Streaming BitTorrent en directo hacia tu Plex o Jellyfin, sin descargar nada
 category: media
-version: "v1.9.43-2"
+version: "v1.9.43-3"
 port: 9080
 description: >-
   Tiramisu monta un sistema de ficheros virtual (FUSE) en el que cada archivo

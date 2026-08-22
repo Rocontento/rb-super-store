@@ -119,28 +119,42 @@ calientes. Sin techo, eso se lleva por delante el host.
 
 Esta app pone dos límites:
 
-- `mem_limit` (por defecto `1600m`): techo duro del contenedor. Si se pasa, el
+- `mem_limit` (por defecto `700m`): techo duro del contenedor. Si se pasa, el
   kernel mata Tiramisu y el contenedor vuelve solo, en lugar de que el OOM
   killer del host elija víctima entre todas tus apps.
-- `GOMEMLIMIT` (por defecto `1024MiB`): límite blando del heap de Go. Hace que
+- `GOMEMLIMIT` (por defecto `448MiB`): límite blando del heap de Go. Hace que
   el recolector apriete al acercarse, así que normalmente no se llega a tocar
   el techo duro.
 
-Si tu Umbrel va sobrado de RAM y quieres más margen, súbelos en el
-`docker-compose.yml` de la app manteniendo `GOMEMLIMIT` bastante por debajo de
-`mem_limit`: el proceso también necesita sitio para stacks, mmap y los buffers
-de FUSE, que no son heap.
+Los valores están calculados para la máquina más pequeña en la que corre
+umbrelOS: 4 GB en total, de los que umbrelOS, Docker y un servidor de medios
+ya ocupan alrededor del 80% antes de que Tiramisu pida nada. Si tu Umbrel va
+sobrado, súbelos en el `docker-compose.yml` de la app manteniendo `GOMEMLIMIT`
+bastante por debajo de `mem_limit`: el proceso también necesita sitio para
+stacks, mmap y los buffers de FUSE, que no son heap. Y ten en cuenta que
+`mem_limit` es un tope, no una reserva — ponerlo por encima de lo que el host
+puede darte no sirve de nada.
 
 Para bajar el consumo aún más, en el Control Panel:
 
-- `master_concurrency_limit` → 6-8
-- `read_ahead_budget_mb` → 96
-- GoStorm `CacheSize` → 32-64 MB (está en la sección de ajustes de GoStorm, no
+- `master_concurrency_limit` → 6 (durante un escaneo el motor permite
+  `master_concurrency_limit - 5` lecturas simultáneas, así que 6 deja 1)
+- `read_ahead_budget_mb` → 64
+- GoStorm `CacheSize` → 32 MB (está en la sección de ajustes de GoStorm, no
   en `config.json`)
 
 Los dos primeros ya vienen ajustados en el `config.json` que trae esta app,
-pero solo aplican a instalaciones nuevas: si ya la tenías instalada, tu
-`config.json` no se toca y hay que cambiarlos a mano.
+pero **solo aplican a instalaciones nuevas**: al actualizar, `umbreld` copia
+únicamente los ficheros de su whitelist (`docker-compose.yml *.template
+exports.sh torrc hooks`), así que tu `config.json` no se toca y hay que
+cambiarlos a mano.
+
+**El sync automático puede tumbarte la máquina de madrugada**
+
+El scheduler viene desactivado, pero si lo enciendes, los trabajos por defecto
+son Películas a las 3:00 y Series a las 4:00. En una máquina justa de RAM eso
+es un crash a las tres de la mañana. Déjalo desactivado hasta que hayas
+comprobado que un sync manual cabe sin problemas.
 
 **El primer escaneo de Plex va lentísimo**
 
