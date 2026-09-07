@@ -54,7 +54,7 @@ services:
       - TIRAMISU_MOUNT_PATH=/mnt/tiramisu-mkv-virtual
       # Printed in the logs when the mount goes stale, to tell the user which
       # host path to `umount -l`.
-      - TIRAMISU_HOST_MOUNT_HINT=${APP_DATA_DIR}/data/virtual
+      - TIRAMISU_HOST_MOUNT_HINT=${UMBREL_ROOT}/home/Downloads/Tiramisu
 
     volumes:
       # Mounted read-write on purpose: the Control Panel saves settings back
@@ -64,10 +64,18 @@ services:
       - ${APP_DATA_DIR}/data/state:/data
       # The .mkv stubs the library is built from.
       - ${APP_DATA_DIR}/data/real:/mnt/tiramisu-mkv-real
-      # The FUSE mount itself. rshared propagates the mount out to the host so
-      # Plex/Jellyfin can read it; without it the host only ever sees an empty
-      # directory. Needs the host mount to be shared (systemd does this for /
-      # by default; see README.md if the container refuses to start).
+      # The FUSE mount itself, backed by the shared Home/Downloads folder
+      # (same one Plex's own official app already mounts at /downloads) instead
+      # of this app's private app-data. rshared propagates the live FUSE mount
+      # out to the host so other containers can read it; without it, whoever
+      # else is looking at this same folder just sees it empty forever, however
+      # long they wait — a plain bind mount (like Plex's own /downloads one)
+      # never picks up a *new mount* layered on top of it after the fact,
+      # only content changes to what was already there. Using Home/Downloads
+      # rather than app-data means Plex/Jellyfin need no extra folder grant at
+      # all: it's a folder they already have by default, not one a user has to
+      # discover and share manually via Advanced folder access — which, as
+      # configured through that UI, is always rprivate and can't do this job.
       # Short syntax is mandatory: umbreld's compose patcher calls .replace()
       # on every volumes entry and crashes on the long (mapping) form.
-      - ${APP_DATA_DIR}/data/virtual:/mnt/tiramisu-mkv-virtual:rshared
+      - ${UMBREL_ROOT}/home/Downloads/Tiramisu:/mnt/tiramisu-mkv-virtual:rshared
