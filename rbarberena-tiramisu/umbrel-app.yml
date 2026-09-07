@@ -3,7 +3,7 @@ id: rbarberena-tiramisu
 name: Tiramisu
 tagline: Streaming BitTorrent en directo hacia tu Plex o Jellyfin, sin descargar nada
 category: media
-version: "v1.9.43-4"
+version: "v1.9.43-5"
 port: 9080
 description: >-
   Tiramisu monta un sistema de ficheros virtual (FUSE) en el que cada archivo
@@ -87,6 +87,20 @@ gallery:
   - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/health_monitor_1.png
   - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/library.png
 releaseNotes: >-
+  WatchlistSync y TVSync (episodios sueltos) reciben el mismo tratamiento
+  perezoso que MovieSync: nada de abrir torrents reales durante el sync, solo
+  al darle al play. Los packs de temporada siguen verificando en el sync porque
+  no hay forma de saber qué episodio es cada archivo sin la lista real del
+  torrent.
+
+
+  Arreglado además un bug que borraba la librería entera: el limpiador de
+  huérfanos de Movies trataba "no conectado ahora mismo en GoStorm" como
+  "huérfano y borrable", pero con el sync perezoso eso es el estado normal de
+  reposo, no una señal de que algo desapareció. Ahora solo registra en el log,
+  no borra nada.
+
+
   Ahora corre la imagen del fork (github.com/Rocontento/tiramisu) en vez de la
   original: MovieSync ya no abre torrents reales durante el sync (solo mira
   metadata del indexador), y verifica/hace fallback a otra release al momento
