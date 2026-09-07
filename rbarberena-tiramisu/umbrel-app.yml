@@ -3,7 +3,7 @@ id: rbarberena-tiramisu
 name: Tiramisu
 tagline: Streaming BitTorrent en directo hacia tu Plex o Jellyfin, sin descargar nada
 category: media
-version: "v1.9.43-5"
+version: "v1.9.43-6"
 port: 9080
 description: >-
   Tiramisu monta un sistema de ficheros virtual (FUSE) en el que cada archivo
@@ -57,7 +57,9 @@ description: >-
      Tiramisu, no a tu Umbrel.
 
   4. Añade la carpeta virtual como biblioteca en Plex o Jellyfin. Está en
-     ~/umbrel/app-data/rbarberena-tiramisu/data/virtual dentro de tu Umbrel.
+     ~/umbrel/home/Downloads/Tiramisu dentro de tu Umbrel — es la misma
+     carpeta "Downloads" que Plex ya monta de fábrica, así que no hace falta
+     darle ningún permiso extra: simplemente búscala al añadir la biblioteca.
 
 
   Avisos importantes
@@ -87,6 +89,16 @@ gallery:
   - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/health_monitor_1.png
   - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/library.png
 releaseNotes: >-
+  La carpeta virtual (la que ve Plex/Jellyfin) ahora vive en
+  ~/umbrel/home/Downloads/Tiramisu en vez de en el app-data privado de esta
+  app. Antes, si movías el origen de los archivos a un disco externo con
+  "Advanced folder access", el montaje FUSE nunca llegaba a salir de este
+  contenedor — esa UI siempre monta con propagación privada, así que
+  cualquier otra app se quedaba viendo esa carpeta vacía para siempre, sin
+  importar cuánto esperase. Al vivir en Downloads, que Plex ya monta de
+  fábrica, esto ya no depende de compartir carpetas a mano.
+
+
   WatchlistSync y TVSync (episodios sueltos) reciben el mismo tratamiento
   perezoso que MovieSync: nada de abrir torrents reales durante el sync, solo
   al darle al play. Los packs de temporada siguen verificando en el sync porque
