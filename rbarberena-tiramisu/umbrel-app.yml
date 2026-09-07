@@ -3,7 +3,7 @@ id: rbarberena-tiramisu
 name: Tiramisu
 tagline: Streaming BitTorrent en directo hacia tu Plex o Jellyfin, sin descargar nada
 category: media
-version: "v1.9.43-3"
+version: "v1.9.43-4"
 port: 9080
 description: >-
   Tiramisu monta un sistema de ficheros virtual (FUSE) en el que cada archivo
@@ -87,6 +87,13 @@ gallery:
   - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/health_monitor_1.png
   - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/library.png
 releaseNotes: >-
+  Ahora corre la imagen del fork (github.com/Rocontento/tiramisu) en vez de la
+  original: MovieSync ya no abre torrents reales durante el sync (solo mira
+  metadata del indexador), y verifica/hace fallback a otra release al momento
+  de darle al play si la primera no responde en ~25s. Esto es lo que evitaba
+  el OOM del contenedor cuando corría el sync automático.
+
+
   Primera versión de Tiramisu empaquetada para Umbrel, anclada a la v1.9.43 por
   digest.
 
