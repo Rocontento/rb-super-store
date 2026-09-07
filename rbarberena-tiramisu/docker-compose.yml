@@ -6,7 +6,13 @@ services:
       APP_PORT: 9080
 
   tiramisu:
-    image: mrrobotogit/tiramisu:v1.9.43@sha256:432af23b80c321bcb20cce206182fc9ffbccae9e03403a5a4bf477e18dd19330
+    # Built from https://github.com/Rocontento/tiramisu (fork) by its own
+    # docker-publish.yml, which pushes to GHCR under this account on every
+    # push to main. Not pinned by digest like the upstream image was: this
+    # tracks the fork's latest build on purpose. Re-pin to a digest once the
+    # fork settles, the way upstream does, to stop an in-place `latest` from
+    # changing what's running without a deliberate update.
+    image: ghcr.io/rocontento/tiramisu:latest
     restart: unless-stopped
 
     # The whole product is a FUSE filesystem, so the container needs the FUSE
