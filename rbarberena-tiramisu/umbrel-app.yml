@@ -3,7 +3,7 @@ id: rbarberena-tiramisu
 name: Tiramisu
 tagline: Streaming BitTorrent en directo hacia tu Plex o Jellyfin, sin descargar nada
 category: media
-version: "v1.9.43-6"
+version: "v1.9.43-7"
 port: 9080
 description: >-
   Tiramisu monta un sistema de ficheros virtual (FUSE) en el que cada archivo
@@ -89,6 +89,14 @@ gallery:
   - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/health_monitor_1.png
   - https://raw.githubusercontent.com/MrRobotoGit/tiramisu/main/docs/screenshots/library.png
 releaseNotes: >-
+  Dos arreglos de reproducción: bajar "Master Concurrency" por debajo de 5 ya
+  no bloquea toda reproducción nueva para siempre (una cuenta interna se
+  volvía negativa y denegaba el streaming sin parar); y los torrents con
+  varios archivos (muestra, NFO, subtítulos antes que el vídeo) ya no fallan
+  con "file with id 0 not found" — ahora elige el archivo de vídeo más grande
+  si no hay forma de saber el índice de antemano.
+
+
   La carpeta virtual (la que ve Plex/Jellyfin) ahora vive en
   ~/umbrel/home/Downloads/Tiramisu en vez de en el app-data privado de esta
   app. Antes, si movías el origen de los archivos a un disco externo con
