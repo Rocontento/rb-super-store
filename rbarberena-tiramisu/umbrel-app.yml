@@ -77,8 +77,8 @@ developer: MrRobotoGit
 website: https://github.com/MrRobotoGit/tiramisu
 submitter: Rocontento
 submission: https://github.com/Rocontento/rb-super-store
-repo: https://github.com/MrRobotoGit/tiramisu
-support: https://github.com/MrRobotoGit/tiramisu/issues
+repo: https://github.com/Rocontento/tiramisu
+support: https://github.com/Rocontento/tiramisu/issues
 dependencies: []
 path: "/dashboard"
 icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/master/rbarberena-tiramisu/icon.svg
