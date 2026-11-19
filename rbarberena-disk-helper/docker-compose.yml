@@ -1,0 +1,14 @@
+version: "3.7"
+
+services:
+  disk-helper:
+    image: debian:trixie-slim
+    restart: unless-stopped
+    # Necesario para montar el SSD y vigilar la memoria del SERVIDOR, no la del contenedor.
+    # Da acceso root total al host: revisar start.sh antes de cambiar nada.
+    privileged: true
+    pid: host
+    network_mode: host
+    volumes:
+      - ${APP_DATA_DIR}/start.sh:/start.sh:ro
+    command: ["sh", "/start.sh"]

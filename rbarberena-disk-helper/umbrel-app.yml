@@ -1,0 +1,28 @@
+manifestVersion: 1
+id: rbarberena-disk-helper
+name: Disk Helper
+tagline: Mounts the internal SSD and runs EarlyOOM on every boot
+icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/refs/heads/master/rbarberena-disk-helper/icon.svg
+category: files
+version: "1.0.0"
+port: 8790
+description: >-
+  Mounts the internal SATA SSD (by UUID) at External/SSD and runs EarlyOOM to
+  avoid freezes when memory runs out. umbrelOS only auto-mounts USB drives and
+  wipes system changes on updates, so this app re-applies both on every start.
+
+  The web page on port 8790 shows the SSD mount, memory and EarlyOOM status.
+
+  Runs privileged with the host PID namespace (root access to the host).
+developer: Rbarberena
+website: https://github.com/Rocontento/rb-super-store
+submitter: Rbarberena
+submission: ""
+repo: https://github.com/Rocontento/rb-super-store
+support: https://github.com/Rocontento/rb-super-store/issues
+releaseNotes: >-
+  First version: SSD mount, EarlyOOM and status page.
+dependencies: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
