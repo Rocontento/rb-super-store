@@ -1,14 +1,20 @@
 version: "3.7"
 
 services:
+  # Proxy de Umbrel: pone el panel detras del login de Umbrel
+  app_proxy:
+    environment:
+      APP_HOST: rbarberena-disk-helper_disk-helper_1
+      APP_PORT: 8790
+
   disk-helper:
     image: debian:trixie-slim
     restart: unless-stopped
-    # Necesario para montar el SSD y vigilar la memoria del SERVIDOR, no la del contenedor.
-    # Da acceso root total al host: revisar start.sh antes de cambiar nada.
+    # Necesario para montar el SSD y vigilar la memoria y los discos del SERVIDOR.
+    # Da acceso root total al host: revisar lib.sh y cgi-bin/action antes de cambiar nada.
     privileged: true
     pid: host
-    network_mode: host
     volumes:
-      - ${APP_DATA_DIR}/start.sh:/start.sh:ro
-    command: ["sh", "/start.sh"]
+      - ${APP_DATA_DIR}:/app:ro
+      - ${APP_DATA_DIR}/data:/data
+    command: ["sh", "/app/start.sh"]

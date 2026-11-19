@@ -1,0 +1,43 @@
+#!/bin/sh
+# Acciones del panel. Solo POST; todos los parametros se validan contra listas cerradas.
+. /app/lib.sh
+printf 'Content-Type: application/json\r\n\r\n'
+
+reply() { jq -n -c --argjson ok "$1" --arg msg "$2" '{ok: $ok, msg: $msg}'; }
+param() { echo "$QUERY_STRING" | tr '&' '\n' | sed -n "s/^$1=//p" | head -1; }
+
+[ "$REQUEST_METHOD" = POST ] || { reply false "Solo se aceptan peticiones POST."; exit 0; }
+
+case "$(param do)" in
+  remount)
+    if out=$(mount_ssd 2>&1); then reply true "$out"; else reply false "$out"; fi
+    ;;
+  smart)
+    dev=$(param dev); type=$(param type)
+    case "$type" in short|long) ;; *) reply false "Tipo de test no valido."; exit 0 ;; esac
+    list_disks | awk '{print $1}' | grep -qx "$dev" || { reply false "Disco no valido."; exit 0; }
+    out=$(smartctl -t "$type" "/dev/$dev" 2>&1)
+    if echo "$out" | grep -qi "begun"; then
+      reply true "Test $type iniciado en $dev. $(echo "$out" | grep -i 'wait\|complete after' | head -1)"
+    else
+      reply false "El disco no acepto el test: $(echo "$out" | tail -2 | tr '\n' ' ')"
+    fi
+    ;;
+  swap)
+    size=$(param size)
+    case "$size" in 0|2|4|8) ;; *) reply false "Tamano no valido."; exit 0 ;; esac
+    old=$(cat "$SWAPCONF" 2>/dev/null || echo 0)
+    echo "$size" > "$SWAPCONF"
+    if out=$(apply_swap 2>&1); then reply true "$out"; else echo "$old" > "$SWAPCONF"; reply false "$out"; fi
+    ;;
+  trash)
+    [ "$(param confirm)" = yes ] || { reply false "Falta la confirmacion."; exit 0; }
+    # Igual que emptyTrash() de umbreld: borra el contenido de trash/ y trash-meta/ (no las carpetas)
+    host find "$TRASH" "$TRASH_META" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null
+    reply true "Papelera vaciada."
+    ;;
+  *)
+    reply false "Accion desconocida."
+    ;;
+esac
+collect 2>/dev/null

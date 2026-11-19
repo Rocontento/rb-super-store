@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disk Helper</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --text: #1c1e21; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #2563eb; --ok: #16a34a; --warn: #d97706; --bad: #dc2626; --track: #e5e7eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #181b21; --text: #e6e8eb; --muted: #9aa1ab; --line: #2a2e36;
+      --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --track: #2a2e36;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    max-width: 1100px; margin: 0 auto; padding: 24px 16px 8px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 16px 32px;
+    display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; min-width: 0; }
+  .wide { grid-column: 1 / -1; }
+  .row { display: flex; justify-content: space-between; gap: 8px; margin: 10px 0 4px; }
+  .bar { height: 8px; background: var(--track); border-radius: 99px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+  .bar.warn > i { background: var(--warn); } .bar.bad > i { background: var(--bad); }
+  .pill { font-size: 12px; padding: 2px 9px; border-radius: 99px; font-weight: 600; white-space: nowrap; }
+  .pill.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .pill.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+  .pill.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { text-align: left; padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; border-top: 0; }
+  .scroll { overflow-x: auto; }
+  button { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--bad); }
+  button.sel { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  ul.log { list-style: none; margin: 0; padding: 0; font: 12px/1.5 ui-monospace, monospace; max-height: 220px; overflow: auto; }
+  ul.log li { padding: 4px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px);
+    background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Disk Helper</h1>
+  <span class="muted" id="updated">Cargando…</span>
+</header>
+<main>
+  <section class="card">
+    <h2>SSD <span id="ssd-pill"></span></h2>
+    <div id="ssd-info" class="muted"></div>
+    <div class="actions"><button id="btn-remount">Volver a montar</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Memoria</h2>
+    <div id="mem"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Discos y espacio</h2>
+    <div id="disks"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Salud SMART <span class="muted">· se actualiza cada hora</span></h2>
+    <div class="scroll"><table id="smart"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>Swap</h2>
+    <div id="swap"></div>
+    <div class="row"><span>Swap en el SSD</span><span class="muted">detrás del zram</span></div>
+    <div class="actions" id="swap-btns"></div>
+  </section>
+
+  <section class="card">
+    <h2>Procesos que más memoria usan</h2>
+    <table id="top"></table>
+  </section>
+
+  <section class="card">
+    <h2>EarlyOOM <span id="oom-pill"></span></h2>
+    <div class="muted">Procesos que ha tenido que cerrar por falta de memoria:</div>
+    <ul class="log" id="oom"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Papelera de Umbrel</h2>
+    <div id="trash"></div>
+    <div class="muted" style="margin-top:6px">Está en el NVMe. Vaciarla borra todo su contenido para siempre.</div>
+    <div class="actions"><button class="danger" id="btn-trash">Vaciar papelera</button></div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const fmt = (b) => {
+  const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return `${b.toFixed(b < 10 && i ? 1 : 0)} ${u[i]}`;
+};
+const bar = (used, total) => {
+  const p = total ? Math.min(100, (used / total) * 100) : 0;
+  return `<div class="bar ${p > 90 ? "bad" : p > 80 ? "warn" : ""}"><i style="width:${p.toFixed(1)}%"></i></div>`;
+};
+const pill = (cls, text) => `<span class="pill ${cls}">${esc(text)}</span>`;
+const NAMES = {"/data": "NVMe · sistema y apps"};
+const diskName = (t) => NAMES[t] || "External / " + t.split("/").pop();
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.style.display = "block";
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = "none"), 6000);
+}
+
+async function act(params, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch("cgi-bin/action?" + new URLSearchParams(params), {method: "POST"});
+    const j = await r.json();
+    toast((j.ok ? "✓ " : "✕ ") + j.msg);
+  } catch (e) { toast("✕ Error: " + e.message); }
+  if (btn) btn.disabled = false;
+  load();
+}
+
+function renderStatus(s) {
+  $("updated").textContent = "Actualizado " + s.time;
+
+  $("ssd-pill").innerHTML = s.ssd_mounted ? pill("ok", "Montado") : pill("bad", "No montado");
+  $("ssd-info").innerHTML = s.ssd_mounted
+    ? `External/SSD · ${s.home_link ? "visible en Files como <b>Home/SSD</b>" : "<b>no enlazado en Home</b>"}`
+    : "El SSD no está montado. Las apps que lo usen no tendrán acceso.";
+
+  const m = s.mem, used = m.total - m.avail, sused = m.swap_total - m.swap_free;
+  $("mem").innerHTML = `
+    <div class="row"><span>RAM</span><span>${fmt(used)} de ${fmt(m.total)}</span></div>${bar(used, m.total)}
+    <div class="row"><span>Swap total</span><span>${fmt(sused)} de ${fmt(m.swap_total)}</span></div>${bar(sused, m.swap_total)}`;
+
+  $("disks").innerHTML = s.disks.map((d) => `
+    <div class="row"><span><b>${esc(diskName(d.target))}</b> <span class="muted">${esc(d.source)}</span></span>
+    <span>${fmt(d.used)} de ${fmt(d.size)} · ${Math.round((d.used / d.size) * 100)}%</span></div>${bar(d.used, d.size)}`).join("");
+
+  const z = s.zram;
+  $("swap").innerHTML = s.swaps.map((w) => `
+    <div class="row"><span>${w.name.includes("zram") ? "zram (RAM comprimida)" : "SSD"} <span class="muted">prioridad ${w.prio}</span></span>
+    <span>${fmt(w.used)} de ${fmt(w.size)}</span></div>${bar(w.used, w.size)}`).join("") +
+    `<div class="muted" style="margin-top:8px">zram: ${esc(z.algo)}, ${fmt(z.size)} · swappiness ${z.swappiness} (lo gestiona Umbrel)</div>`;
+  $("swap-btns").innerHTML = [0, 2, 4, 8].map((g) =>
+    `<button data-size="${g}" class="${s.swap_conf == g ? "sel" : ""}">${g ? g + " GB" : "Apagado"}</button>`).join("");
+  $("swap-btns").querySelectorAll("button").forEach((b) => (b.onclick = () => {
+    const g = b.dataset.size;
+    const msg = g == 0 ? "¿Apagar el swap del SSD? Se borrará su archivo."
+                       : `¿Poner el swap del SSD en ${g} GB? Puede tardar unos segundos.`;
+    if (confirm(msg)) act({do: "swap", size: g}, b);
+  }));
+
+  $("top").innerHTML = "<tr><th>Proceso</th><th>Memoria</th></tr>" +
+    s.top.map((p) => `<tr><td>${esc(p.name)}</td><td>${fmt(p.bytes)}</td></tr>`).join("");
+
+  $("oom-pill").innerHTML = s.earlyoom ? pill("ok", "Activo") : pill("bad", "Parado");
+  $("oom").innerHTML = s.oom.length ? s.oom.map((l) => `<li>${esc(l)}</li>`).join("")
+                                    : `<li class="muted">Ninguno. ¡Bien!</li>`;
+
+  $("trash").innerHTML = `<div class="row"><span>${s.trash.items} elementos</span><span><b>${fmt(s.trash.bytes)}</b></span></div>`;
+  $("btn-trash").disabled = s.trash.items === 0;
+  $("btn-trash").onclick = (e) => {
+    if (confirm(`¿Vaciar la papelera? Se borrarán para siempre ${s.trash.items} elementos (${fmt(s.trash.bytes)}). No se puede deshacer.`))
+      act({do: "trash", confirm: "yes"}, e.target);
+  };
+}
+
+function renderSmart(list) {
+  const rows = list.map(({name, tran, data: d}) => {
+    const passed = d.smart_status?.passed;
+    const health = passed === true ? pill("ok", "OK") : passed === false ? pill("bad", "FALLO") : pill("warn", "Sin datos");
+    const attr = (id) => d.ata_smart_attributes?.table?.find((a) => a.id === id);
+    let wear = "—";
+    if (d.nvme_smart_health_information_log) wear = `${d.nvme_smart_health_information_log.percentage_used}% usado`;
+    else if (attr(231)) wear = `${attr(231).value}% vida restante`;
+    const realloc = attr(5) ? attr(5).raw.value : "—";
+    const test = d.ata_smart_data?.self_test?.status?.string || d.nvme_self_test_log?.current_self_test_operation?.string || "—";
+    const model = d.model_name || [d.scsi_vendor, d.scsi_product].filter(Boolean).join(" ") || name;
+    const hours = d.power_on_time?.hours;
+    return `<tr>
+      <td><b>${esc(model)}</b><div class="muted">${esc(name)} · ${esc(tran.toUpperCase())}</div></td>
+      <td>${health}</td>
+      <td>${d.temperature?.current ? d.temperature.current + " °C" : "—"}</td>
+      <td>${hours != null ? hours.toLocaleString("es") + " h" : "—"}</td>
+      <td>${esc(wear)}</td><td>${esc(realloc)}</td>
+      <td class="muted">${esc(test)}</td>
+      <td><div class="actions" style="margin:0">
+        <button data-dev="${esc(name)}" data-type="short">Test corto</button>
+        <button data-dev="${esc(name)}" data-type="long">Test largo</button></div></td></tr>`;
+  });
+  $("smart").innerHTML = `<tr><th>Disco</th><th>Salud</th><th>Temp.</th><th>Encendido</th><th>Desgaste</th>
+    <th>Sectores reasignados</th><th>Último test</th><th></th></tr>` + rows.join("");
+  $("smart").querySelectorAll("button").forEach((b) => (b.onclick = () => {
+    const {dev, type} = b.dataset;
+    if (confirm(`¿Lanzar un test SMART ${type === "long" ? "largo (puede tardar más de una hora)" : "corto (unos 2 minutos)"} en ${dev}? Solo lee el disco.`))
+      act({do: "smart", dev, type}, b);
+  }));
+}
+
+async function load() {
+  try {
+    const [s, m] = await Promise.all([
+      fetch("status.json", {cache: "no-store"}).then((r) => r.json()),
+      fetch("smart.json", {cache: "no-store"}).then((r) => r.json()).catch(() => []),
+    ]);
+    renderStatus(s); renderSmart(m);
+  } catch (e) { $("updated").textContent = "Esperando datos… (el primer arranque tarda ~1 min)"; }
+}
+load(); setInterval(load, 30000);
+$("btn-remount").onclick = (e) => act({do: "remount"}, e.target);
+</script>
+</body>
+</html>

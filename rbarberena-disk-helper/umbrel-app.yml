@@ -1,17 +1,17 @@
 manifestVersion: 1
 id: rbarberena-disk-helper
 name: Disk Helper
-tagline: Mounts the internal SSD and runs EarlyOOM on every boot
+tagline: SSD mount, disk health, memory and swap dashboard
 icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/refs/heads/master/rbarberena-disk-helper/icon.svg
 category: files
-version: "1.0.0"
+version: "1.1.0"
 port: 8790
 description: >-
   Mounts the internal SATA SSD (by UUID) at External/SSD and runs EarlyOOM to
   avoid freezes when memory runs out. umbrelOS only auto-mounts USB drives and
   wipes system changes on updates, so this app re-applies both on every start.
 
-  The web page on port 8790 shows the SSD mount, memory and EarlyOOM status.
+  The dashboard (behind the Umbrel login) shows disks, SMART health, memory, swap and EarlyOOM history, and can remount the SSD, run SMART tests, set an SSD swap file and empty the Umbrel trash.
 
   Runs privileged with the host PID namespace (root access to the host).
 developer: Rbarberena
@@ -21,7 +21,7 @@ submission: ""
 repo: https://github.com/Rocontento/rb-super-store
 support: https://github.com/Rocontento/rb-super-store/issues
 releaseNotes: >-
-  First version: SSD mount, EarlyOOM and status page.
+  Dashboard behind the Umbrel login: disks, SMART health and tests, memory, swap on the SSD, EarlyOOM history and Umbrel trash.
 dependencies: []
 path: ""
 defaultUsername: ""
