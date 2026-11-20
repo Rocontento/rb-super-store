@@ -4,7 +4,7 @@ name: Disk Helper
 tagline: SSD mount, disk health, memory and swap dashboard
 icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/refs/heads/master/rbarberena-disk-helper/icon.svg
 category: files
-version: "1.1.0"
+version: "1.2.0"
 port: 8790
 description: >-
   Mounts the internal SATA SSD (by UUID) at External/SSD and runs EarlyOOM to
@@ -21,7 +21,7 @@ submission: ""
 repo: https://github.com/Rocontento/rb-super-store
 support: https://github.com/Rocontento/rb-super-store/issues
 releaseNotes: >-
-  Dashboard behind the Umbrel login: disks, SMART health and tests, memory, swap on the SSD, EarlyOOM history and Umbrel trash.
+  Fix: app code now lives in hooks/ so Umbrel updates copy it (1.1 updates kept the old status page).
 dependencies: []
 path: ""
 defaultUsername: ""
