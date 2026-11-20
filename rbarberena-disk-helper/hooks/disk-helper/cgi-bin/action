@@ -23,6 +23,38 @@ case "$(param do)" in
       reply false "El disco no acepto el test: $(echo "$out" | tail -2 | tr '\n' ' ')"
     fi
     ;;
+  earlyoom)
+    # pkill -x earlyoom: el unico EarlyOOM del servidor es el de esta app (el del sistema esta inactivo)
+    note() { echo "$(date '+%Y-%m-%d %H:%M:%S') [panel] $1" >> "$LOG"; }
+    case "$(param op)" in
+      stop)
+        touch "$OOM_OFF"; pkill -x earlyoom; note "EarlyOOM parado"
+        reply true "EarlyOOM parado. Seguirá parado (también tras reiniciar) hasta que lo actives."
+        ;;
+      start|restart)
+        rm -f "$OOM_OFF"; [ "$(param op)" = restart ] && pkill -x earlyoom; note "EarlyOOM $(param op)"
+        sleep 4
+        if pgrep -x earlyoom >/dev/null; then reply true "EarlyOOM activo."; else reply false "EarlyOOM no arrancó; revisa el registro del contenedor."; fi
+        ;;
+      *) reply false "Operación no válida." ;;
+    esac
+    ;;
+  zram)
+    pct=$(param pct); algo=$(param algo)
+    case "$pct" in 0|25|50|75|100) ;; *) reply false "Tamaño no válido."; exit 0 ;; esac
+    case "$algo" in zstd|lz4) ;; *) reply false "Compresión no válida."; exit 0 ;; esac
+    old=$(cat "$ZRAMCONF" 2>/dev/null)
+    echo "$pct $algo" > "$ZRAMCONF"
+    if out=$(apply_zram 2>&1); then
+      # 75 % zstd es lo de Umbrel: se borra la eleccion y la app deja de gestionarlo
+      [ "$pct $algo" = "75 zstd" ] && rm -f "$ZRAMCONF"
+      reply true "$out"
+    else
+      # Si no se aplico, se recupera la eleccion anterior (o ninguna: lo de Umbrel)
+      if [ -n "$old" ]; then echo "$old" > "$ZRAMCONF"; else rm -f "$ZRAMCONF"; fi
+      reply false "$out"
+    fi
+    ;;
   swap)
     size=$(param size)
     case "$size" in 0|2|4|8) ;; *) reply false "Tamano no valido."; exit 0 ;; esac

@@ -6,6 +6,7 @@ HOME_LINK=/home/umbrel/umbrel/home/SSD
 TRASH=/home/umbrel/umbrel/trash
 TRASH_META=/home/umbrel/umbrel/trash-meta
 LOG=/data/earlyoom.log
+OOM_OFF=/data/earlyoom-off   # si existe, EarlyOOM se queda parado (interruptor del panel)
 
 host() { nsenter -t 1 -m -- "$@"; }
 
@@ -63,6 +64,54 @@ apply_swap() {
   host swapon -p 10 "$SWAPFILE" && echo "Swap del SSD activo: $size GB (detras del zram)."
 }
 
+# zram: "PCT ALGO" en /data/zram.conf (PCT 0 = apagado). Sin archivo = lo que pone Umbrel (75 zstd)
+# y la app no lo toca nunca.
+ZRAMCONF=/data/zram.conf
+ZDEV=/sys/block/zram0
+
+zram_target() { cat "$ZRAMCONF" 2>/dev/null || echo "75 zstd"; }
+
+# Configura zram0 (lo que pone Umbrel)
+zram_setup() {  # $1 = bytes, $2 = algoritmo
+  echo 1 > $ZDEV/reset && echo "$2" > $ZDEV/comp_algorithm && echo "$1" > $ZDEV/disksize &&
+    host mkswap -q /dev/zram0 >/dev/null && host swapon -p 100 /dev/zram0
+}
+
+apply_zram() {
+  set -- $(zram_target); pct=$1; algo=$2
+  [ -e $ZDEV ] || { echo "ERROR: no existe zram0."; return 1; }
+  total=$(awk '/^MemTotal:/ {print $2 * 1024}' /proc/meminfo)
+  want=$((total / 100 * pct))
+  on=0; grep -q '^/dev/zram0[[:space:]]' /proc/swaps && on=1
+
+  # Ya esta como se quiere? (tolerancia de 64 MB en el tamano)
+  [ "$pct" = 0 ] && [ $on = 0 ] && { echo "zram ya está apagado."; return 0; }
+  if [ $on = 1 ] && [ "$pct" != 0 ]; then
+    diff=$(( ($(cat $ZDEV/disksize) - want) / 1048576 ))
+    cur_algo=$(sed 's/.*\[\(.*\)\].*/\1/' $ZDEV/comp_algorithm)
+    [ "$cur_algo" = "$algo" ] && [ "$diff" -ge -64 ] && [ "$diff" -le 64 ] && { echo "zram ya está así ($pct %, $algo)."; return 0; }
+  fi
+
+  # Para cambiarlo hay que vaciarlo: lo que tiene dentro debe caber en RAM libre + otro swap libre
+  if [ $on = 1 ]; then
+    used_kb=$(awk '$1 == "/dev/zram0" {print $4}' /proc/swaps)
+    avail_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+    other_kb=$(awk 'NR > 1 && $1 != "/dev/zram0" {s += $3 - $4} END {print s + 0}' /proc/swaps)
+    [ "$used_kb" -lt $(( (avail_kb + other_kb) * 8 / 10 )) ] || {
+      echo "No se cambia: el zram tiene $((used_kb / 1024)) MB dentro y no hay sitio para vaciarlo (RAM libre $((avail_kb / 1024)) MB, otro swap libre $((other_kb / 1024)) MB). Activa antes el swap del SSD."
+      return 1; }
+    host swapoff /dev/zram0 || { echo "ERROR al vaciar el zram; no se ha cambiado nada."; return 1; }
+  fi
+
+  if [ "$pct" = 0 ]; then echo 1 > $ZDEV/reset; echo "zram apagado."; return 0; fi
+  if zram_setup "$want" "$algo"; then
+    echo "zram activo: $pct % de la RAM ($((want / 1048576)) MB), $algo."
+  else
+    zram_setup $((total / 100 * 75)) zstd
+    echo "ERROR configurando zram; se ha restaurado lo de Umbrel (75 %, zstd)."; return 1
+  fi
+}
+
 # Discos fisicos: "nombre transporte" (sata, nvme, usb)
 list_disks() { host lsblk -dno NAME,TRAN | awk '$2 != "" {print $1, $2}'; }
 
@@ -89,7 +138,12 @@ collect() {
     | {name: .[0], size: ((.[2] | tonumber) * 1024), used: ((.[3] | tonumber) * 1024), prio: (.[4] | tonumber)})')
   zram=$(jq -n -c --arg algo "$(sed 's/.*\[\(.*\)\].*/\1/' /sys/block/zram0/comp_algorithm 2>/dev/null)" \
     --argjson size "$(cat /sys/block/zram0/disksize 2>/dev/null || echo 0)" \
-    --argjson swappiness "$(cat /proc/sys/vm/swappiness)" '{algo: $algo, size: $size, swappiness: $swappiness}')
+    --argjson swappiness "$(cat /proc/sys/vm/swappiness)" \
+    --argjson on "$(grep -q '^/dev/zram0[[:space:]]' /proc/swaps && echo true || echo false)" \
+    --argjson custom "$([ -e "$ZRAMCONF" ] && echo true || echo false)" \
+    --arg target "$(zram_target)" \
+    '{algo: $algo, size: $size, swappiness: $swappiness, on: $on, custom: $custom,
+      pct: ($target | split(" ")[0] | tonumber), target_algo: ($target | split(" ")[1])}')
   trash_bytes=$(host du -sb "$TRASH" 2>/dev/null | cut -f1)
   trash_items=$(host ls -A "$TRASH" 2>/dev/null | wc -l)
   jq -n -c \
@@ -98,9 +152,10 @@ collect() {
     --argjson ssd "$(host mountpoint -q "$MNT" && echo true || echo false)" \
     --argjson link "$(host mountpoint -q "$HOME_LINK" && echo true || echo false)" \
     --argjson earlyoom "$(pgrep -x earlyoom >/dev/null && echo true || echo false)" \
+    --argjson earlyoom_off "$([ -e "$OOM_OFF" ] && echo true || echo false)" \
     --argjson trash_bytes "${trash_bytes:-0}" --argjson trash_items "${trash_items:-0}" \
     --argjson swaps "${swaps:-[]}" --argjson zram "$zram" --argjson swap_conf "$(cat "$SWAPCONF" 2>/dev/null || echo 0)" \
-    '{time: $time, ssd_mounted: $ssd, home_link: $link, earlyoom: $earlyoom, disks: $disks,
+    '{time: $time, ssd_mounted: $ssd, home_link: $link, earlyoom: $earlyoom, earlyoom_off: $earlyoom_off, disks: $disks,
       mem: $mem, top: $top, oom: $oom, trash: {bytes: $trash_bytes, items: $trash_items},
       swaps: $swaps, zram: $zram, swap_conf: $swap_conf}' \
     > /www/status.json.tmp && mv /www/status.json.tmp /www/status.json

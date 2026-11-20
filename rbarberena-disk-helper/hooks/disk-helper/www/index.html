@@ -49,6 +49,15 @@
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
   ul.log { list-style: none; margin: 0; padding: 0; font: 12px/1.5 ui-monospace, monospace; max-height: 220px; overflow: auto; }
   ul.log li { padding: 4px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+  .switch { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch .slider { width: 40px; height: 22px; border-radius: 99px; background: var(--track); position: relative; transition: background .2s; }
+  .switch .slider::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .switch input:checked + .slider { background: var(--ok); }
+  .switch input:checked + .slider::after { transform: translateX(18px); }
+  .switch input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .switch input:disabled + .slider { opacity: .5; }
   #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px);
     background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; display: none; }
 </style>
@@ -83,8 +92,12 @@
   <section class="card">
     <h2>Swap</h2>
     <div id="swap"></div>
-    <div class="row"><span>Swap en el SSD</span><span class="muted">detrás del zram</span></div>
-    <div class="actions" id="swap-btns"></div>
+    <div class="row" style="margin-top:16px"><span><b>zram</b> · tamaño</span><span class="muted" id="zram-note"></span></div>
+    <div class="actions" style="margin-top:6px" id="zram-pct"></div>
+    <div class="row"><span>Compresión</span><span class="muted">zstd comprime más · lz4 es más rápido</span></div>
+    <div class="actions" style="margin-top:6px" id="zram-algo"></div>
+    <div class="row" style="margin-top:16px"><span><b>Swap en el SSD</b></span><span class="muted">detrás del zram</span></div>
+    <div class="actions" style="margin-top:6px" id="swap-btns"></div>
   </section>
 
   <section class="card">
@@ -94,6 +107,11 @@
 
   <section class="card">
     <h2>EarlyOOM <span id="oom-pill"></span></h2>
+    <div class="actions" style="margin:0 0 12px; align-items:center">
+      <label class="switch"><input type="checkbox" id="oom-switch" role="switch"><span class="slider"></span>
+        <span id="oom-switch-label">Activado</span></label>
+      <button id="btn-oom-restart">Reiniciar</button>
+    </div>
     <div class="muted">Procesos que ha tenido que cerrar por falta de memoria:</div>
     <ul class="log" id="oom"></ul>
   </section>
@@ -160,7 +178,19 @@ function renderStatus(s) {
   $("swap").innerHTML = s.swaps.map((w) => `
     <div class="row"><span>${w.name.includes("zram") ? "zram (RAM comprimida)" : "SSD"} <span class="muted">prioridad ${w.prio}</span></span>
     <span>${fmt(w.used)} de ${fmt(w.size)}</span></div>${bar(w.used, w.size)}`).join("") +
-    `<div class="muted" style="margin-top:8px">zram: ${esc(z.algo)}, ${fmt(z.size)} · swappiness ${z.swappiness} (lo gestiona Umbrel)</div>`;
+    `<div class="muted" style="margin-top:8px">zram ${z.on ? `${esc(z.algo)}, ${fmt(z.size)}` : "apagado"} · swappiness ${z.swappiness}</div>`;
+  $("zram-note").textContent = z.custom ? "configurado desde aquí" : "configuración de Umbrel";
+  const zramAct = (pct, algo, btn) => {
+    const what = pct == 0 ? "apagar el zram" : `poner el zram en ${pct} % de la RAM con ${algo}`;
+    if (confirm(`¿${what[0].toUpperCase() + what.slice(1)}? Antes hay que vaciarlo: si no hay sitio en RAM o en el swap del SSD, se cancelará sin tocar nada. Puede tardar un poco.`))
+      act({do: "zram", pct, algo}, btn);
+  };
+  $("zram-pct").innerHTML = [0, 25, 50, 75, 100].map((p) =>
+    `<button data-pct="${p}" class="${(z.on ? z.pct : 0) == p ? "sel" : ""}">${p ? p + " %" + (p == 75 ? " (Umbrel)" : "") : "Apagado"}</button>`).join("");
+  $("zram-pct").querySelectorAll("button").forEach((b) => (b.onclick = () => zramAct(b.dataset.pct, z.target_algo, b)));
+  $("zram-algo").innerHTML = ["zstd", "lz4"].map((a) =>
+    `<button data-algo="${a}" class="${z.target_algo == a ? "sel" : ""}" ${z.on ? "" : "disabled"}>${a}</button>`).join("");
+  $("zram-algo").querySelectorAll("button").forEach((b) => (b.onclick = () => zramAct(z.pct || 75, b.dataset.algo, b)));
   $("swap-btns").innerHTML = [0, 2, 4, 8].map((g) =>
     `<button data-size="${g}" class="${s.swap_conf == g ? "sel" : ""}">${g ? g + " GB" : "Apagado"}</button>`).join("");
   $("swap-btns").querySelectorAll("button").forEach((b) => (b.onclick = () => {
@@ -173,7 +203,19 @@ function renderStatus(s) {
   $("top").innerHTML = "<tr><th>Proceso</th><th>Memoria</th></tr>" +
     s.top.map((p) => `<tr><td>${esc(p.name)}</td><td>${fmt(p.bytes)}</td></tr>`).join("");
 
-  $("oom-pill").innerHTML = s.earlyoom ? pill("ok", "Activo") : pill("bad", "Parado");
+  $("oom-pill").innerHTML = s.earlyoom ? pill("ok", "Activo")
+    : s.earlyoom_off ? pill("warn", "Parado a mano") : pill("bad", "Parado");
+  const sw = $("oom-switch");
+  sw.checked = !s.earlyoom_off;
+  $("oom-switch-label").textContent = s.earlyoom_off ? "Desactivado" : "Activado";
+  sw.onchange = () => {
+    if (!sw.checked && !confirm("¿Parar EarlyOOM? Sin él, si se acaba la memoria el servidor puede quedarse colgado. Seguirá parado tras reiniciar hasta que lo actives.")) {
+      sw.checked = true; return;
+    }
+    sw.disabled = true;
+    act({do: "earlyoom", op: sw.checked ? "start" : "stop"}).finally(() => (sw.disabled = false));
+  };
+  $("btn-oom-restart").onclick = (e) => act({do: "earlyoom", op: "restart"}, e.target);
   $("oom").innerHTML = s.oom.length ? s.oom.map((l) => `<li>${esc(l)}</li>`).join("")
                                     : `<li class="muted">Ninguno. ¡Bien!</li>`;
 
