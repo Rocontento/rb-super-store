@@ -208,6 +208,39 @@ smart_scan() {
   done | jq -s . > /www/smart.json.$$ && mv /www/smart.json.$$ /www/smart.json
 }
 
+# ---------------------------------------------------------------- Procesos y su app
+# Los 40 procesos con mas memoria, agrupados por nombre (comm, lo que usa EarlyOOM), con la memoria
+# total y de que apps vienen. Un proceso de app vive en un contenedor (su cgroup lleva el id); el
+# nombre del contenedor empieza por el id de la app, y el nombre bonito sale de su umbrel-app.yml.
+procs_json() {
+  apps=$(host sh -c 'for f in /home/umbrel/umbrel/app-data/*/umbrel-app.yml; do
+      id=${f%/umbrel-app.yml}; id=${id##*/}
+      printf "%s\t%s\n" "$id" "$(sed -n "s/^name: *//p" "$f" | head -1 | tr -d "\"'"'"'")"; done' 2>/dev/null)
+  ctrs=$(host docker ps --no-trunc --format '{{.ID}}	{{.Names}}' 2>/dev/null)
+  ps -eo pid=,rss=,comm= --sort=-rss | head -40 | while read -r pid rss comm; do
+    cid=$(grep -o '[0-9a-f]\{64\}' "/proc/$pid/cgroup" 2>/dev/null | head -1)
+    if [ -n "$cid" ]; then
+      ctr=$(printf '%s\n' "$ctrs" | awk -F'\t' -v c="$cid" '$1 == c {print $2; exit}')
+      app=$(printf '%s\n' "$apps" | awk -F'\t' -v a="${ctr%%_*}" '$1 == a {print $2; exit}')
+      label=${app:-${ctr:-Contenedor}}
+    elif grep -q umbreld "/proc/$pid/cmdline" 2>/dev/null; then
+      label="Umbrel (umbreld)"   # umbreld y sus piezas internas (p. ej. esbuild)
+    else
+      case "$comm" in
+        dockerd|containerd*|docker-proxy) label="Docker" ;;
+        smbd*|rpcd_*|samba*|nmbd*) label="Compartir archivos (Samba)" ;;
+        sshd*) label="Acceso SSH" ;;
+        tailscaled) label="Tailscale" ;;
+        *) label="Sistema" ;;
+      esac
+    fi
+    printf '%s\t%s\t%s\n' "$comm" "$rss" "$label"
+  done | jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], kb: (.[1] | tonumber), app: .[2]})
+    | group_by(.name) | map({name: .[0].name, bytes: (map(.kb) | add * 1024), count: length,
+        apps: (map(.app) | unique), ok: (.[0].name | test("^[A-Za-z0-9._-]{1,15}$"))})
+    | sort_by(-.bytes)'
+}
+
 # ---------------------------------------------------------------- Estado -> /www/status.json
 collect() {
   disks=$(host findmnt -Jbl -o SOURCE,SIZE,USED,TARGET | jq -c '[.filesystems[]
@@ -215,8 +248,7 @@ collect() {
     | .source |= sub("\\[.*"; "")] | unique_by(.target)')
   mem=$(awk '{v[$1] = $2 * 1024} END {printf "{\"total\":%d,\"avail\":%d,\"swap_total\":%d,\"swap_free\":%d}",
     v["MemTotal:"], v["MemAvailable:"], v["SwapTotal:"], v["SwapFree:"]}' /proc/meminfo)
-  top=$(ps -eo rss=,comm= --sort=-rss | head -8 |
-    jq -R -s -c 'split("\n") | map(select(length > 0) | capture("^ *(?<rss>[0-9]+) +(?<name>.+)$") | {name, bytes: ((.rss | tonumber) * 1024)})')
+  procs=$(procs_json)
   oom=$(grep -h "sending SIG[A-Z]* to process\|would have killed\|dry run" "$LOG" 2>/dev/null | tail -15 |
     jq -R -s -c 'split("\n") | map(select(length > 0)) | reverse')
   swaps=$(tail -n +2 /proc/swaps | jq -R -s -c 'split("\n") | map(select(length > 0) | [splits("\\s+")]
@@ -242,7 +274,7 @@ collect() {
   jq -n -c \
     --arg time "$(date '+%Y-%m-%d %H:%M:%S')" --argjson epoch "$(date +%s)" \
     --argjson test "$([ -e "$TEST_MARK" ] && echo true || echo false)" \
-    --argjson disks "${disks:-[]}" --argjson mem "$mem" --argjson top "${top:-[]}" --argjson oom "${oom:-[]}" \
+    --argjson disks "${disks:-[]}" --argjson mem "$mem" --argjson procs "${procs:-[]}" --argjson oom "${oom:-[]}" \
     --argjson ssd "$(host mountpoint -q "$MNT" && echo true || echo false)" \
     --argjson link "$(host mountpoint -q "$HOME_LINK" && echo true || echo false)" \
     --argjson earlyoom "$(eo_pids >/dev/null && echo true || echo false)" \
@@ -252,7 +284,7 @@ collect() {
     --argjson eo_cfg "$eo_cfg" \
     '{time: $time, epoch: $epoch, test: $test, ssd_mounted: $ssd, home_link: $link,
       earlyoom: $earlyoom, earlyoom_off: $earlyoom_off, disks: $disks,
-      mem: $mem, top: $top, oom: $oom, trash: {bytes: $trash_bytes, items: $trash_items},
+      mem: $mem, procs: $procs, oom: $oom, trash: {bytes: $trash_bytes, items: $trash_items},
       swaps: $swaps, zram: $zram, swap_conf: $swap_conf, earlyoom_cfg: $eo_cfg}' \
     > /www/status.json.$$ && mv /www/status.json.$$ /www/status.json
 }

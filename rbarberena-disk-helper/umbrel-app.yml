@@ -4,7 +4,7 @@ name: Disk Helper
 tagline: SSD mount, disk health, memory and swap dashboard
 icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/refs/heads/master/rbarberena-disk-helper/icon.svg
 category: files
-version: "1.4.0"
+version: "1.5.0"
 port: 8790
 description: >-
   Mounts the internal SATA SSD (by UUID) at External/SSD and runs EarlyOOM to
@@ -21,7 +21,7 @@ submission: ""
 repo: https://github.com/Rocontento/rb-super-store
 support: https://github.com/Rocontento/rb-super-store/issues
 releaseNotes: >-
-  EarlyOOM settings from the panel (thresholds, protect / kill-first / never-kill, dry run). Panel shows real swap/zram state and warns when it differs from the settings. Security: only the Umbrel login can reach the panel, cross-site requests blocked, one action at a time. Works offline at boot (cached packages), pinned image, clean uninstall. Default EarlyOOM now protects Home Assistant, umbreld and Matter.
+  New dashboard: tabs (summary, disks, memory, EarlyOOM), actionable alerts, disks with SMART health, and an EarlyOOM process picker that shows which app each process belongs to.
 dependencies: []
 path: ""
 defaultUsername: ""
