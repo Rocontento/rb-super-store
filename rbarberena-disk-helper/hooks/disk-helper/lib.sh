@@ -8,6 +8,42 @@ TRASH_META=/home/umbrel/umbrel/trash-meta
 LOG=/data/earlyoom.log
 OOM_OFF=/data/earlyoom-off   # si existe, EarlyOOM se queda parado (interruptor del panel)
 
+# Configuracion de EarlyOOM (panel) en /data/earlyoom.conf, lineas clave=valor:
+#   mem, swap = % minimo libre (SIGTERM; SIGKILL a la mitad)
+#   avoid / ignore / prefer = nombres de proceso (comm, max 15) separados por espacios
+#   dryrun = 1 para solo registrar, sin cerrar nada
+# Sin archivo = lo de siempre. Se valida al leer, asi un archivo roto nunca rompe EarlyOOM.
+EO_CONF=/data/earlyoom.conf
+EO_DEFAULT_AVOID="init systemd dockerd containerd umbreld sshd"
+
+eo_get() { sed -n "s/^$1=//p" "$EO_CONF" 2>/dev/null | head -1; }
+eo_valid_names() { echo "$1" | grep -Eq '^([A-Za-z0-9._-]{1,15}( |$))*$'; }
+
+eo_load() {
+  eo_mem=$(eo_get mem); eo_swap=$(eo_get swap); eo_dryrun=$(eo_get dryrun)
+  eo_avoid=$(eo_get avoid); eo_ignore=$(eo_get ignore); eo_prefer=$(eo_get prefer)
+  [ -e "$EO_CONF" ] || eo_avoid=$EO_DEFAULT_AVOID
+  case "$eo_mem" in [1-9]|[1-4][0-9]|50) ;; *) eo_mem=10 ;; esac
+  case "$eo_swap" in [1-9]|[1-9][0-9]|100) ;; *) eo_swap=10 ;; esac
+  [ "$eo_dryrun" = 1 ] || eo_dryrun=0
+  eo_valid_names "$eo_avoid" || eo_avoid=$EO_DEFAULT_AVOID
+  eo_valid_names "$eo_ignore" || eo_ignore=""
+  eo_valid_names "$eo_prefer" || eo_prefer=""
+}
+
+# "a b.c" -> ^(a|b\.c)$
+eo_regex() { printf '^(%s)$' "$(echo "$1" | sed 's/\./\\./g; s/ /|/g')"; }
+
+run_earlyoom() {
+  eo_load
+  set -- -r 3600 -m "$eo_mem" -s "$eo_swap"
+  [ -n "$eo_avoid" ] && set -- "$@" --avoid "$(eo_regex "$eo_avoid")"
+  [ -n "$eo_ignore" ] && set -- "$@" --ignore "$(eo_regex "$eo_ignore")"
+  [ -n "$eo_prefer" ] && set -- "$@" --prefer "$(eo_regex "$eo_prefer")"
+  [ "$eo_dryrun" = 1 ] && set -- "$@" --dryrun
+  earlyoom "$@"
+}
+
 host() { nsenter -t 1 -m -- "$@"; }
 
 # Monta el SSD en External/SSD y lo enlaza en Home/SSD para que salga en Files.
@@ -144,6 +180,11 @@ collect() {
     --arg target "$(zram_target)" \
     '{algo: $algo, size: $size, swappiness: $swappiness, on: $on, custom: $custom,
       pct: ($target | split(" ")[0] | tonumber), target_algo: ($target | split(" ")[1])}')
+  eo_load
+  eo_cfg=$(jq -n -c --argjson mem "$eo_mem" --argjson swap "$eo_swap" --arg avoid "$eo_avoid" --arg ignore "$eo_ignore" \
+    --arg prefer "$eo_prefer" --argjson dryrun "$([ "$eo_dryrun" = 1 ] && echo true || echo false)" \
+    --argjson custom "$([ -e "$EO_CONF" ] && echo true || echo false)" \
+    '{mem: $mem, swap: $swap, avoid: $avoid, ignore: $ignore, prefer: $prefer, dryrun: $dryrun, custom: $custom}')
   trash_bytes=$(host du -sb "$TRASH" 2>/dev/null | cut -f1)
   trash_items=$(host ls -A "$TRASH" 2>/dev/null | wc -l)
   jq -n -c \
@@ -155,8 +196,9 @@ collect() {
     --argjson earlyoom_off "$([ -e "$OOM_OFF" ] && echo true || echo false)" \
     --argjson trash_bytes "${trash_bytes:-0}" --argjson trash_items "${trash_items:-0}" \
     --argjson swaps "${swaps:-[]}" --argjson zram "$zram" --argjson swap_conf "$(cat "$SWAPCONF" 2>/dev/null || echo 0)" \
+    --argjson eo_cfg "$eo_cfg" \
     '{time: $time, ssd_mounted: $ssd, home_link: $link, earlyoom: $earlyoom, earlyoom_off: $earlyoom_off, disks: $disks,
       mem: $mem, top: $top, oom: $oom, trash: {bytes: $trash_bytes, items: $trash_items},
-      swaps: $swaps, zram: $zram, swap_conf: $swap_conf}' \
+      swaps: $swaps, zram: $zram, swap_conf: $swap_conf, earlyoom_cfg: $eo_cfg}' \
     > /www/status.json.tmp && mv /www/status.json.tmp /www/status.json
 }

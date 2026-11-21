@@ -3,9 +3,15 @@
 . /app/lib.sh
 
 # 1. Montar el SSD (usa los binarios del host, no necesita red)
-mount_ssd && apply_swap
-# zram: solo si se ha cambiado desde el panel; si no, se deja lo de Umbrel
-[ -e "$ZRAMCONF" ] && apply_zram
+#    DH_TEST=1 (contenedor de prueba con /data vacio): no tocar disco, swap ni zram, porque su
+#    configuracion vacia apagaria el swap real del servidor.
+if [ "$DH_TEST" = 1 ]; then
+  echo "Modo prueba: no se toca el SSD, el swap ni el zram."
+else
+  mount_ssd && apply_swap
+  # zram: solo si se ha cambiado desde el panel; si no, se deja lo de Umbrel
+  [ -e "$ZRAMCONF" ] && apply_zram
+fi
 
 # 2. Herramientas del contenedor (se instalan en cada arranque; reintenta si no hay red)
 export DEBIAN_FRONTEND=noninteractive
@@ -26,10 +32,11 @@ busybox httpd -p 8790 -h /www
 
 # 4. EarlyOOM supervisado: si se cae o se reinicia desde el panel, vuelve a arrancar en 2 s.
 #    Si existe $OOM_OFF (interruptor del panel), se queda parado. Registro con fecha en /data.
+#    La configuracion ($EO_CONF) se lee en cada arranque de EarlyOOM (ver run_earlyoom en lib.sh).
 touch "$LOG" && tail -n 2000 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
 while true; do
   if [ -e "$OOM_OFF" ]; then sleep 2; continue; fi
-  earlyoom -r 3600 --avoid '^(init|systemd|dockerd|containerd|umbreld|sshd)$' 2>&1 |
+  run_earlyoom 2>&1 |
     while IFS= read -r line; do echo "$(date '+%Y-%m-%d %H:%M:%S') $line"; done | tee -a "$LOG"
   sleep 2
 done

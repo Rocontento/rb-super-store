@@ -4,7 +4,7 @@ name: Disk Helper
 tagline: SSD mount, disk health, memory and swap dashboard
 icon: https://raw.githubusercontent.com/Rocontento/rb-super-store/refs/heads/master/rbarberena-disk-helper/icon.svg
 category: files
-version: "1.3.0"
+version: "1.4.0"
 port: 8790
 description: >-
   Mounts the internal SATA SSD (by UUID) at External/SSD and runs EarlyOOM to
@@ -21,7 +21,7 @@ submission: ""
 repo: https://github.com/Rocontento/rb-super-store
 support: https://github.com/Rocontento/rb-super-store/issues
 releaseNotes: >-
-  EarlyOOM switch and restart button (supervised, restarts on its own); editable zram (size, compression, on/off) with a safety check; fixed the "stopped" status right after start.
+  EarlyOOM settings from the panel: RAM and swap thresholds, protect / kill-first / never-kill process lists and a dry-run mode. Without changes it keeps the previous behaviour.
 dependencies: []
 path: ""
 defaultUsername: ""

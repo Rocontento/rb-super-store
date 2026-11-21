@@ -36,6 +36,29 @@ case "$(param do)" in
         sleep 4
         if pgrep -x earlyoom >/dev/null; then reply true "EarlyOOM activo."; else reply false "EarlyOOM no arrancó; revisa el registro del contenedor."; fi
         ;;
+      config)
+        # Listas: el panel envia nombres separados por comas (%2C); se pasan a espacios y se validan
+        names() { param "$1" | sed 's/%2[Cc]/,/g; s/+/ /g' | tr ',' ' ' | tr -s ' ' | sed 's/^ //; s/ $//'; }
+        mem=$(param mem); swap=$(param swap); dryrun=$(param dryrun)
+        avoid=$(names avoid); ignore=$(names ignore); prefer=$(names prefer)
+        case "$mem" in [1-9]|[1-4][0-9]|50) ;; *) reply false "RAM mínima: entre 1 y 50 %."; exit 0 ;; esac
+        case "$swap" in [1-9]|[1-9][0-9]|100) ;; *) reply false "Swap mínimo: entre 1 y 100 %."; exit 0 ;; esac
+        case "$dryrun" in 0|1) ;; *) reply false "Modo prueba no válido."; exit 0 ;; esac
+        for list in "$avoid" "$ignore" "$prefer"; do
+          eo_valid_names "$list" || { reply false "Nombre de proceso no válido: solo letras, números, . _ - y 15 caracteres como máximo."; exit 0; }
+        done
+        printf 'mem=%s\nswap=%s\navoid=%s\nignore=%s\nprefer=%s\ndryrun=%s\n' \
+          "$mem" "$swap" "$avoid" "$ignore" "$prefer" "$dryrun" > "$EO_CONF.tmp" && mv "$EO_CONF.tmp" "$EO_CONF"
+        rm -f "$OOM_OFF"; pkill -x earlyoom; note "Configuración guardada; EarlyOOM reiniciado"
+        sleep 4
+        if pgrep -x earlyoom >/dev/null; then reply true "Configuración guardada y EarlyOOM reiniciado."
+        else reply false "Configuración guardada, pero EarlyOOM no arrancó; revisa el registro del contenedor."; fi
+        ;;
+      reset)
+        rm -f "$EO_CONF"; pkill -x earlyoom; note "Configuración restaurada por defecto"
+        sleep 4
+        reply true "Configuración por defecto restaurada y EarlyOOM reiniciado."
+        ;;
       *) reply false "Operación no válida." ;;
     esac
     ;;

@@ -58,6 +58,14 @@
   .switch input:checked + .slider::after { transform: translateX(18px); }
   .switch input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }
   .switch input:disabled + .slider { opacity: .5; }
+  .form { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .field label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .field label.switch { display: inline-flex; }
+  .field .muted { display: block; margin-top: 4px; }
+  .field input[type=text], .field input[type=number] { width: 100%; font: inherit; padding: 7px 10px;
+    border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .field input[type=number] { width: 90px; }
+  .field input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
   #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px);
     background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; display: none; }
 </style>
@@ -114,6 +122,49 @@
     </div>
     <div class="muted">Procesos que ha tenido que cerrar por falta de memoria:</div>
     <ul class="log" id="oom"></ul>
+  </section>
+
+  <section class="card wide">
+    <h2>Configuración de EarlyOOM <span id="eo-custom"></span></h2>
+    <form id="eo-form" class="form" onsubmit="return false">
+      <div class="field">
+        <label for="eo-mem">Actuar con RAM libre por debajo de</label>
+        <input type="number" id="eo-mem" min="1" max="50" required> %
+        <span class="muted">Cierra con SIGTERM por debajo de este valor y fuerza el cierre por debajo de la mitad. Por defecto 10 %.</span>
+      </div>
+      <div class="field">
+        <label for="eo-swap">… y swap libre por debajo de</label>
+        <input type="number" id="eo-swap" min="1" max="100" required> %
+        <span class="muted">Tienen que cumplirse las dos. Con 100 % solo cuenta la RAM. Por defecto 10 %.</span>
+      </div>
+      <div class="field">
+        <label for="eo-avoid">Proteger</label>
+        <input type="text" id="eo-avoid" placeholder="systemd, dockerd, node">
+        <span class="muted">Solo los cierra si no queda otro candidato razonable.</span>
+      </div>
+      <div class="field">
+        <label for="eo-prefer">Cerrar primero</label>
+        <input type="text" id="eo-prefer" placeholder="immich, immich-api">
+        <span class="muted">Son los primeros en caer cuando falta memoria.</span>
+      </div>
+      <div class="field">
+        <label for="eo-ignore">Nunca cerrar</label>
+        <input type="text" id="eo-ignore" placeholder="(vacío)">
+        <span class="muted">Ni aunque sean los que más memoria usan. Úsalo con cuidado: otros procesos pagarán por ellos.</span>
+      </div>
+      <div class="field">
+        <label class="switch"><input type="checkbox" id="eo-dryrun" role="switch"><span class="slider"></span>
+          <span>Modo prueba</span></label>
+        <span class="muted">Solo anota en el historial a quién habría cerrado, sin cerrar nada.</span>
+      </div>
+    </form>
+    <div class="muted" style="margin-top:12px">Los nombres son los de la tabla «Procesos que más memoria usan» (máx. 15 caracteres), separados por comas.
+      Home Assistant es <b>python3</b>; umbreld y Matter Hub son <b>node</b>; Matter Server es <b>MainThread</b>.</div>
+    <div class="actions">
+      <button class="primary" id="eo-save">Guardar y reiniciar EarlyOOM</button>
+      <button id="eo-recommended">Rellenar recomendada</button>
+      <button id="eo-reset">Restaurar por defecto</button>
+    </div>
   </section>
 
   <section class="card">
@@ -216,6 +267,11 @@ function renderStatus(s) {
     act({do: "earlyoom", op: sw.checked ? "start" : "stop"}).finally(() => (sw.disabled = false));
   };
   $("btn-oom-restart").onclick = (e) => act({do: "earlyoom", op: "restart"}, e.target);
+
+  // Configuracion: no se pisa el formulario mientras se edita
+  const c = s.earlyoom_cfg;
+  $("eo-custom").innerHTML = c.custom ? pill("ok", "Personalizada") : pill("warn", "Por defecto");
+  if (!eoDirty) fillEo(c);
   $("oom").innerHTML = s.oom.length ? s.oom.map((l) => `<li>${esc(l)}</li>`).join("")
                                     : `<li class="muted">Ninguno. ¡Bien!</li>`;
 
@@ -268,6 +324,35 @@ async function load() {
     renderStatus(s); renderSmart(m);
   } catch (e) { $("updated").textContent = "Esperando datos… (el primer arranque tarda ~1 min)"; }
 }
+// --- Configuracion de EarlyOOM ---
+let eoDirty = false;
+const toList = (s) => s.split(/[\s,]+/).filter(Boolean).join(", ");
+const fromList = (s) => s.split(/[\s,]+/).filter(Boolean).join(",");
+function fillEo(c) {
+  $("eo-mem").value = c.mem; $("eo-swap").value = c.swap;
+  $("eo-avoid").value = toList(c.avoid); $("eo-prefer").value = toList(c.prefer); $("eo-ignore").value = toList(c.ignore);
+  $("eo-dryrun").checked = c.dryrun;
+}
+$("eo-form").addEventListener("input", () => (eoDirty = true));
+$("eo-recommended").onclick = () => {
+  fillEo({mem: 10, swap: 10, avoid: "systemd dockerd containerd sshd tailscaled node python3 MainThread",
+          prefer: "immich immich-api", ignore: "", dryrun: false});
+  eoDirty = true;
+  toast("Recomendada rellenada: revísala y pulsa Guardar para aplicarla.");
+};
+$("eo-save").onclick = (e) => {
+  if (!$("eo-form").reportValidity()) return;
+  const p = {do: "earlyoom", op: "config", mem: $("eo-mem").value, swap: $("eo-swap").value,
+    avoid: fromList($("eo-avoid").value), prefer: fromList($("eo-prefer").value),
+    ignore: fromList($("eo-ignore").value), dryrun: $("eo-dryrun").checked ? 1 : 0};
+  if (!confirm("¿Guardar esta configuración? EarlyOOM se reiniciará con ella (unos segundos).")) return;
+  eoDirty = false; act(p, e.target);
+};
+$("eo-reset").onclick = (e) => {
+  if (!confirm("¿Volver a la configuración por defecto? EarlyOOM se reiniciará.")) return;
+  eoDirty = false; act({do: "earlyoom", op: "reset"}, e.target);
+};
+
 load(); setInterval(load, 30000);
 $("btn-remount").onclick = (e) => act({do: "remount"}, e.target);
 </script>
