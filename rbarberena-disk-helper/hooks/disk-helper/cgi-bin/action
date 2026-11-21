@@ -1,40 +1,50 @@
 #!/bin/sh
-# Acciones del panel. Solo POST; todos los parametros se validan contra listas cerradas.
+# Acciones del panel. Todos los parametros se validan contra listas cerradas.
 . /app/lib.sh
 printf 'Content-Type: application/json\r\n\r\n'
 
 reply() { jq -n -c --argjson ok "$1" --arg msg "$2" '{ok: $ok, msg: $msg}'; }
-param() { echo "$QUERY_STRING" | tr '&' '\n' | sed -n "s/^$1=//p" | head -1; }
+param() { printf '%s\n' "$QUERY_STRING" | tr '&' '\n' | sed -n "s/^$1=//p" | head -1; }
+note() { echo "$(date '+%Y-%m-%d %H:%M:%S') [panel] $1" >> "$LOG"; }
 
-[ "$REQUEST_METHOD" = POST ] || { reply false "Solo se aceptan peticiones POST."; exit 0; }
+# Solo POST con Content-Type JSON: otra web no puede mandarlo sin una comprobacion previa (CORS)
+# que este servidor no acepta, asi que una pagina de otra app no puede lanzar acciones.
+[ "$REQUEST_METHOD" = POST ] && [ "$CONTENT_TYPE" = application/json ] ||
+  { reply false "Petición no válida."; exit 0; }
+live >/dev/null || { reply false "Modo prueba: las acciones están desactivadas."; exit 0; }
+
+# Una accion cada vez (cambiar zram o swap puede tardar minutos)
+exec 9>/tmp/dh-action.lock
+flock -n 9 || { reply false "Ya hay otra acción en curso; espera a que termine."; exit 0; }
 
 case "$(param do)" in
   remount)
-    if out=$(mount_ssd 2>&1); then reply true "$out"; else reply false "$out"; fi
+    # Tras montar, se vuelve a aplicar el swap del SSD (vive en el SSD)
+    if out=$(mount_ssd 2>&1 && apply_swap 2>&1); then reply true "$out"; else reply false "$out"; fi
     ;;
   smart)
     dev=$(param dev); type=$(param type)
-    case "$type" in short|long) ;; *) reply false "Tipo de test no valido."; exit 0 ;; esac
-    list_disks | awk '{print $1}' | grep -qx "$dev" || { reply false "Disco no valido."; exit 0; }
-    out=$(smartctl -t "$type" "/dev/$dev" 2>&1)
-    if echo "$out" | grep -qi "begun"; then
-      reply true "Test $type iniciado en $dev. $(echo "$out" | grep -i 'wait\|complete after' | head -1)"
+    case "$type" in short|long) ;; *) reply false "Tipo de test no válido."; exit 0 ;; esac
+    tran=$(list_disks | awk -v d="$dev" '$1 == d {print $2}')
+    [ -n "$tran" ] || { reply false "Disco no válido."; exit 0; }
+    out=$(host /usr/sbin/smartctl $(smart_opt "$tran") -t "$type" "/dev/$dev" 2>&1)
+    if printf '%s\n' "$out" | grep -qi "begun"; then
+      reply true "Test $type iniciado en $dev. $(printf '%s\n' "$out" | grep -i 'wait\|complete after' | head -1)"
+      smart_scan >/dev/null 2>&1 &
     else
-      reply false "El disco no acepto el test: $(echo "$out" | tail -2 | tr '\n' ' ')"
+      reply false "El disco no aceptó el test: $(printf '%s\n' "$out" | tail -2 | tr '\n' ' ')"
     fi
     ;;
   earlyoom)
-    # pkill -x earlyoom: el unico EarlyOOM del servidor es el de esta app (el del sistema esta inactivo)
-    note() { echo "$(date '+%Y-%m-%d %H:%M:%S') [panel] $1" >> "$LOG"; }
     case "$(param op)" in
       stop)
-        touch "$OOM_OFF"; pkill -x earlyoom; note "EarlyOOM parado"
+        touch "$OOM_OFF"; eo_kill; note "EarlyOOM parado"
         reply true "EarlyOOM parado. Seguirá parado (también tras reiniciar) hasta que lo actives."
         ;;
       start|restart)
-        rm -f "$OOM_OFF"; [ "$(param op)" = restart ] && pkill -x earlyoom; note "EarlyOOM $(param op)"
+        rm -f "$OOM_OFF"; [ "$(param op)" = restart ] && eo_kill; note "EarlyOOM $(param op)"
         sleep 4
-        if pgrep -x earlyoom >/dev/null; then reply true "EarlyOOM activo."; else reply false "EarlyOOM no arrancó; revisa el registro del contenedor."; fi
+        if eo_pids >/dev/null; then reply true "EarlyOOM activo."; else reply false "EarlyOOM no arrancó; revisa el registro del contenedor."; fi
         ;;
       config)
         # Listas: el panel envia nombres separados por comas (%2C); se pasan a espacios y se validan
@@ -49,23 +59,23 @@ case "$(param do)" in
         done
         printf 'mem=%s\nswap=%s\navoid=%s\nignore=%s\nprefer=%s\ndryrun=%s\n' \
           "$mem" "$swap" "$avoid" "$ignore" "$prefer" "$dryrun" > "$EO_CONF.tmp" && mv "$EO_CONF.tmp" "$EO_CONF"
-        rm -f "$OOM_OFF"; pkill -x earlyoom; note "Configuración guardada; EarlyOOM reiniciado"
+        rm -f "$OOM_OFF"; eo_kill; note "Configuración guardada; EarlyOOM reiniciado"
         sleep 4
-        if pgrep -x earlyoom >/dev/null; then reply true "Configuración guardada y EarlyOOM reiniciado."
+        if eo_pids >/dev/null; then reply true "Configuración guardada y EarlyOOM reiniciado."
         else reply false "Configuración guardada, pero EarlyOOM no arrancó; revisa el registro del contenedor."; fi
         ;;
       reset)
-        rm -f "$EO_CONF"; pkill -x earlyoom; note "Configuración restaurada por defecto"
+        rm -f "$EO_CONF"; eo_kill; note "Configuración restaurada por defecto"
         sleep 4
-        reply true "Configuración por defecto restaurada y EarlyOOM reiniciado."
+        if eo_pids >/dev/null; then reply true "Configuración por defecto restaurada y EarlyOOM reiniciado."
+        else reply false "Configuración restaurada, pero EarlyOOM no arrancó; revisa el registro del contenedor."; fi
         ;;
       *) reply false "Operación no válida." ;;
     esac
     ;;
   zram)
     pct=$(param pct); algo=$(param algo)
-    case "$pct" in 0|25|50|75|100) ;; *) reply false "Tamaño no válido."; exit 0 ;; esac
-    case "$algo" in zstd|lz4) ;; *) reply false "Compresión no válida."; exit 0 ;; esac
+    zram_valid "$pct $algo" || { reply false "Tamaño o compresión no válidos."; exit 0; }
     old=$(cat "$ZRAMCONF" 2>/dev/null)
     echo "$pct $algo" > "$ZRAMCONF"
     if out=$(apply_zram 2>&1); then
@@ -80,19 +90,23 @@ case "$(param do)" in
     ;;
   swap)
     size=$(param size)
-    case "$size" in 0|2|4|8) ;; *) reply false "Tamano no valido."; exit 0 ;; esac
-    old=$(cat "$SWAPCONF" 2>/dev/null || echo 0)
+    case "$size" in 0|2|4|8) ;; *) reply false "Tamaño no válido."; exit 0 ;; esac
+    old=$(cat "$SWAPCONF" 2>/dev/null)
     echo "$size" > "$SWAPCONF"
-    if out=$(apply_swap 2>&1); then reply true "$out"; else echo "$old" > "$SWAPCONF"; reply false "$out"; fi
+    if out=$(apply_swap 2>&1); then
+      reply true "$out"
+    else
+      # Se recupera la eleccion anterior y se intenta volver a dejar el swap como estaba
+      if [ -n "$old" ]; then echo "$old" > "$SWAPCONF"; apply_swap >/dev/null 2>&1; else rm -f "$SWAPCONF"; fi
+      reply false "$out"
+    fi
     ;;
   trash)
-    [ "$(param confirm)" = yes ] || { reply false "Falta la confirmacion."; exit 0; }
-    # Igual que emptyTrash() de umbreld: borra el contenido de trash/ y trash-meta/ (no las carpetas)
-    host find "$TRASH" "$TRASH_META" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null
-    reply true "Papelera vaciada."
+    [ "$(param confirm)" = yes ] || { reply false "Falta la confirmación."; exit 0; }
+    if out=$(empty_trash 2>&1); then reply true "$out"; else reply false "$out"; fi
     ;;
   *)
-    reply false "Accion desconocida."
+    reply false "Acción desconocida."
     ;;
 esac
 collect 2>/dev/null

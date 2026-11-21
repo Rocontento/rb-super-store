@@ -1,0 +1,24 @@
+#!/bin/sh
+# Umbrel lo ejecuta en el servidor (como root) justo antes de desinstalar Disk Helper.
+# Deshace lo que la app cambia fuera de su carpeta para no dejar restos. No borra datos:
+# solo desmonta y quita los puntos de montaje vacios. Los archivos del SSD no se tocan.
+H=/home/umbrel/umbrel
+SSD="$H/external/SSD"
+
+# Home/SSD: desmontar el enlace y quitar la carpeta vacia (inmutable) de Files
+umount "$H/home/SSD" 2>/dev/null
+chattr -i "$H/home/SSD" 2>/dev/null
+rmdir "$H/home/SSD" 2>/dev/null
+
+# External/SSD: si el swap del SSD esta activo, se deja montado hasta el reinicio (apagar un swap
+# sin comprobar la memoria es arriesgado); en el siguiente arranque ya nadie lo activa ni lo monta.
+if ! grep -q "^$SSD/swapfile[[:space:]]" /proc/swaps; then
+  umount "$SSD" 2>/dev/null
+fi
+# Si ya no esta montado (ahora o tras reiniciar), quitar la marca inmutable para que Umbrel
+# pueda limpiar la carpeta vacia.
+if ! mountpoint -q "$SSD"; then
+  chattr -i "$SSD" 2>/dev/null
+  rmdir "$SSD" 2>/dev/null
+fi
+exit 0

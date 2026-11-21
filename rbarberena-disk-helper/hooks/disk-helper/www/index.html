@@ -174,145 +174,151 @@
     <div class="actions"><button class="danger" id="btn-trash">Vaciar papelera</button></div>
   </section>
 </main>
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const GB = 1073741824;
 const fmt = (b) => {
+  b = Number(b) || 0;
   const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0;
   while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
   return `${b.toFixed(b < 10 && i ? 1 : 0)} ${u[i]}`;
 };
+const pct = (used, total) => (total > 0 ? Math.min(100, (used / total) * 100) : 0);
 const bar = (used, total) => {
-  const p = total ? Math.min(100, (used / total) * 100) : 0;
+  const p = pct(used, total);
   return `<div class="bar ${p > 90 ? "bad" : p > 80 ? "warn" : ""}"><i style="width:${p.toFixed(1)}%"></i></div>`;
 };
 const pill = (cls, text) => `<span class="pill ${cls}">${esc(text)}</span>`;
 const NAMES = {"/data": "NVMe · sistema y apps"};
 const diskName = (t) => NAMES[t] || "External / " + t.split("/").pop();
+// Solo se reescribe si cambia: asi los botones no se recrean cada 30 s (no se pierde el foco)
+const setHTML = (el, html) => { if (el._html !== html) { el.innerHTML = html; el._html = html; } };
+
+let S = null;   // ultimo status.json
 
 function toast(msg) {
   const t = $("toast"); t.textContent = msg; t.style.display = "block";
-  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = "none"), 6000);
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = "none"), 8000);
 }
 
+// Devuelve {ok, msg}. Content-Type JSON: obliga a una comprobacion CORS que otras webs no pasan.
 async function act(params, btn) {
   if (btn) btn.disabled = true;
+  let j = {ok: false, msg: "Sin respuesta"};
   try {
-    const r = await fetch("cgi-bin/action?" + new URLSearchParams(params), {method: "POST"});
-    const j = await r.json();
-    toast((j.ok ? "✓ " : "✕ ") + j.msg);
-  } catch (e) { toast("✕ Error: " + e.message); }
+    const r = await fetch("cgi-bin/action?" + new URLSearchParams(params),
+      {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"});
+    j = await r.json();
+  } catch (e) { j = {ok: false, msg: "Error: " + e.message}; }
+  toast((j.ok ? "✓ " : "✕ ") + j.msg);
   if (btn) btn.disabled = false;
   load();
+  return j;
 }
 
-function renderStatus(s) {
-  $("updated").textContent = "Actualizado " + s.time;
+// Aviso "configurado X pero en realidad Y" con boton para volver a aplicarlo
+const mismatch = (text, apply) =>
+  `<div class="row" style="align-items:center"><span>${pill("bad", "No coincide")} <span class="muted">${esc(text)}</span></span>` +
+  `<button data-apply='${esc(JSON.stringify(apply))}'>Aplicar</button></div>`;
 
-  $("ssd-pill").innerHTML = s.ssd_mounted ? pill("ok", "Montado") : pill("bad", "No montado");
-  $("ssd-info").innerHTML = s.ssd_mounted
+function renderStatus(s) {
+  S = s;
+  const age = Date.now() / 1000 - s.epoch;
+  $("updated").innerHTML = (s.test ? pill("warn", "Contenedor de prueba: acciones desactivadas") + " " : "") +
+    (age > 120 ? pill("bad", "Datos sin actualizar desde " + s.time) : esc("Actualizado " + s.time));
+
+  setHTML($("ssd-pill"), s.ssd_mounted ? pill("ok", "Montado") : pill("bad", "No montado"));
+  setHTML($("ssd-info"), s.ssd_mounted
     ? `External/SSD · ${s.home_link ? "visible en Files como <b>Home/SSD</b>" : "<b>no enlazado en Home</b>"}`
-    : "El SSD no está montado. Las apps que lo usen no tendrán acceso.";
+    : "El SSD no está montado. Las apps que lo usen no tendrán acceso.");
 
   const m = s.mem, used = m.total - m.avail, sused = m.swap_total - m.swap_free;
-  $("mem").innerHTML = `
+  setHTML($("mem"), `
     <div class="row"><span>RAM</span><span>${fmt(used)} de ${fmt(m.total)}</span></div>${bar(used, m.total)}
-    <div class="row"><span>Swap total</span><span>${fmt(sused)} de ${fmt(m.swap_total)}</span></div>${bar(sused, m.swap_total)}`;
+    <div class="row"><span>Swap total</span><span>${fmt(sused)} de ${fmt(m.swap_total)}</span></div>${bar(sused, m.swap_total)}`);
 
-  $("disks").innerHTML = s.disks.map((d) => `
+  setHTML($("disks"), s.disks.map((d) => `
     <div class="row"><span><b>${esc(diskName(d.target))}</b> <span class="muted">${esc(d.source)}</span></span>
-    <span>${fmt(d.used)} de ${fmt(d.size)} · ${Math.round((d.used / d.size) * 100)}%</span></div>${bar(d.used, d.size)}`).join("");
+    <span>${fmt(d.used)} de ${fmt(d.size)} · ${Math.round(pct(d.used, d.size))}%</span></div>${bar(d.used, d.size)}`).join(""));
 
+  // --- Swap y zram: los botones marcan lo REAL; si no coincide con lo configurado, se avisa
   const z = s.zram;
-  $("swap").innerHTML = s.swaps.map((w) => `
+  const ssdSwap = s.swaps.find((w) => !w.name.includes("zram"));
+  const ssdReal = ssdSwap ? Math.round(ssdSwap.size / GB) : 0;
+  const zReal = z.on ? Math.round((z.size / m.total) * 4) * 25 : 0;   // al 25 % mas cercano
+  let warn = "";
+  if (s.swap_conf != null && s.swap_conf !== ssdReal)
+    warn += mismatch(`Swap del SSD: configurado ${s.swap_conf ? s.swap_conf + " GB" : "apagado"}, activo ${ssdReal ? ssdReal + " GB" : "ninguno"}.`,
+      {do: "swap", size: s.swap_conf});
+  if (z.custom && (zReal !== z.pct || (z.on && z.algo !== z.target_algo)))
+    warn += mismatch(`zram: configurado ${z.pct ? z.pct + " % " + z.target_algo : "apagado"}, activo ${z.on ? zReal + " % " + z.algo : "apagado"}.`,
+      {do: "zram", pct: z.pct, algo: z.target_algo});
+  setHTML($("swap"), warn + s.swaps.map((w) => `
     <div class="row"><span>${w.name.includes("zram") ? "zram (RAM comprimida)" : "SSD"} <span class="muted">prioridad ${w.prio}</span></span>
     <span>${fmt(w.used)} de ${fmt(w.size)}</span></div>${bar(w.used, w.size)}`).join("") +
-    `<div class="muted" style="margin-top:8px">zram ${z.on ? `${esc(z.algo)}, ${fmt(z.size)}` : "apagado"} · swappiness ${z.swappiness}</div>`;
-  $("zram-note").textContent = z.custom ? "configurado desde aquí" : "configuración de Umbrel";
-  const zramAct = (pct, algo, btn) => {
-    const what = pct == 0 ? "apagar el zram" : `poner el zram en ${pct} % de la RAM con ${algo}`;
-    if (confirm(`¿${what[0].toUpperCase() + what.slice(1)}? Antes hay que vaciarlo: si no hay sitio en RAM o en el swap del SSD, se cancelará sin tocar nada. Puede tardar un poco.`))
-      act({do: "zram", pct, algo}, btn);
-  };
-  $("zram-pct").innerHTML = [0, 25, 50, 75, 100].map((p) =>
-    `<button data-pct="${p}" class="${(z.on ? z.pct : 0) == p ? "sel" : ""}">${p ? p + " %" + (p == 75 ? " (Umbrel)" : "") : "Apagado"}</button>`).join("");
-  $("zram-pct").querySelectorAll("button").forEach((b) => (b.onclick = () => zramAct(b.dataset.pct, z.target_algo, b)));
-  $("zram-algo").innerHTML = ["zstd", "lz4"].map((a) =>
-    `<button data-algo="${a}" class="${z.target_algo == a ? "sel" : ""}" ${z.on ? "" : "disabled"}>${a}</button>`).join("");
-  $("zram-algo").querySelectorAll("button").forEach((b) => (b.onclick = () => zramAct(z.pct || 75, b.dataset.algo, b)));
-  $("swap-btns").innerHTML = [0, 2, 4, 8].map((g) =>
-    `<button data-size="${g}" class="${s.swap_conf == g ? "sel" : ""}">${g ? g + " GB" : "Apagado"}</button>`).join("");
-  $("swap-btns").querySelectorAll("button").forEach((b) => (b.onclick = () => {
-    const g = b.dataset.size;
-    const msg = g == 0 ? "¿Apagar el swap del SSD? Se borrará su archivo."
-                       : `¿Poner el swap del SSD en ${g} GB? Puede tardar unos segundos.`;
-    if (confirm(msg)) act({do: "swap", size: g}, b);
-  }));
+    `<div class="muted" style="margin-top:8px">zram ${z.on ? `${esc(z.algo)}, ${fmt(z.size)}` : "apagado"} · swappiness ${z.swappiness}</div>`);
+  setHTML($("zram-note"), z.custom ? "configurado desde aquí" : "configuración de Umbrel");
+  setHTML($("zram-pct"), [0, 25, 50, 75, 100].map((p) =>
+    `<button data-pct="${p}" class="${zReal == p ? "sel" : ""}">${p ? p + " %" + (p == 75 ? " (Umbrel)" : "") : "Apagado"}</button>`).join(""));
+  setHTML($("zram-algo"), ["zstd", "lz4"].map((a) =>
+    `<button data-algo="${a}" class="${z.on && z.algo == a ? "sel" : ""}" ${z.on ? "" : "disabled"}>${a}</button>`).join(""));
+  setHTML($("swap-btns"), [0, 2, 4, 8].map((g) =>
+    `<button data-size="${g}" class="${ssdReal == g ? "sel" : ""}">${g ? g + " GB" : "Apagado"}</button>`).join("") +
+    (s.swap_conf == null ? `<span class="muted" style="align-self:center">sin configurar</span>` : ""));
 
-  $("top").innerHTML = "<tr><th>Proceso</th><th>Memoria</th></tr>" +
-    s.top.map((p) => `<tr><td>${esc(p.name)}</td><td>${fmt(p.bytes)}</td></tr>`).join("");
+  setHTML($("top"), "<tr><th>Proceso</th><th>Memoria</th></tr>" +
+    s.top.map((p) => `<tr><td>${esc(p.name)}</td><td>${fmt(p.bytes)}</td></tr>`).join(""));
 
-  $("oom-pill").innerHTML = s.earlyoom ? pill("ok", "Activo")
-    : s.earlyoom_off ? pill("warn", "Parado a mano") : pill("bad", "Parado");
+  // --- EarlyOOM
+  setHTML($("oom-pill"), s.earlyoom ? pill("ok", "Activo")
+    : s.earlyoom_off ? pill("warn", "Parado a mano") : pill("bad", "Parado (debería estar activo)"));
   const sw = $("oom-switch");
-  sw.checked = !s.earlyoom_off;
+  if (!sw.disabled) sw.checked = !s.earlyoom_off;
   $("oom-switch-label").textContent = s.earlyoom_off ? "Desactivado" : "Activado";
-  sw.onchange = () => {
-    if (!sw.checked && !confirm("¿Parar EarlyOOM? Sin él, si se acaba la memoria el servidor puede quedarse colgado. Seguirá parado tras reiniciar hasta que lo actives.")) {
-      sw.checked = true; return;
-    }
-    sw.disabled = true;
-    act({do: "earlyoom", op: sw.checked ? "start" : "stop"}).finally(() => (sw.disabled = false));
-  };
-  $("btn-oom-restart").onclick = (e) => act({do: "earlyoom", op: "restart"}, e.target);
-
-  // Configuracion: no se pisa el formulario mientras se edita
+  setHTML($("oom"), s.oom.length ? s.oom.map((l) => `<li>${esc(l)}</li>`).join("")
+                                 : `<li class="muted">Ninguno. ¡Bien!</li>`);
   const c = s.earlyoom_cfg;
-  $("eo-custom").innerHTML = c.custom ? pill("ok", "Personalizada") : pill("warn", "Por defecto");
+  setHTML($("eo-custom"), (c.custom ? pill("ok", "Personalizada") : pill("warn", "Por defecto")) +
+    (c.dryrun ? " " + pill("warn", "Modo prueba: no cierra nada") : ""));
   if (!eoDirty) fillEo(c);
-  $("oom").innerHTML = s.oom.length ? s.oom.map((l) => `<li>${esc(l)}</li>`).join("")
-                                    : `<li class="muted">Ninguno. ¡Bien!</li>`;
 
-  $("trash").innerHTML = `<div class="row"><span>${s.trash.items} elementos</span><span><b>${fmt(s.trash.bytes)}</b></span></div>`;
+  // --- Papelera
+  setHTML($("trash"), `<div class="row"><span>${s.trash.items} elementos</span><span><b>${fmt(s.trash.bytes)}</b></span></div>`);
   $("btn-trash").disabled = s.trash.items === 0;
-  $("btn-trash").onclick = (e) => {
-    if (confirm(`¿Vaciar la papelera? Se borrarán para siempre ${s.trash.items} elementos (${fmt(s.trash.bytes)}). No se puede deshacer.`))
-      act({do: "trash", confirm: "yes"}, e.target);
-  };
 }
 
 function renderSmart(list) {
   const rows = list.map(({name, tran, data: d}) => {
     const passed = d.smart_status?.passed;
-    const health = passed === true ? pill("ok", "OK") : passed === false ? pill("bad", "FALLO") : pill("warn", "Sin datos");
+    const asleep = (d.smartctl?.messages || []).some((x) => /STANDBY|SLEEP/i.test(x.string || ""));
+    const health = passed === true ? pill("ok", "OK") : passed === false ? pill("bad", "FALLO")
+      : asleep ? pill("warn", "En reposo") : pill("warn", "Sin datos");
     const attr = (id) => d.ata_smart_attributes?.table?.find((a) => a.id === id);
     let wear = "—";
     if (d.nvme_smart_health_information_log) wear = `${d.nvme_smart_health_information_log.percentage_used}% usado`;
     else if (attr(231)) wear = `${attr(231).value}% vida restante`;
     const realloc = attr(5) ? attr(5).raw.value : "—";
-    const test = d.ata_smart_data?.self_test?.status?.string || d.nvme_self_test_log?.current_self_test_operation?.string || "—";
+    const st = d.ata_smart_data?.self_test?.status;
+    const test = (st?.remaining_percent != null ? `En curso, queda ${st.remaining_percent} %` : st?.string)
+      || d.nvme_self_test_log?.current_self_test_operation?.string || "—";
     const model = d.model_name || [d.scsi_vendor, d.scsi_product].filter(Boolean).join(" ") || name;
     const hours = d.power_on_time?.hours;
     return `<tr>
       <td><b>${esc(model)}</b><div class="muted">${esc(name)} · ${esc(tran.toUpperCase())}</div></td>
       <td>${health}</td>
-      <td>${d.temperature?.current ? d.temperature.current + " °C" : "—"}</td>
-      <td>${hours != null ? hours.toLocaleString("es") + " h" : "—"}</td>
+      <td>${d.temperature?.current ? esc(d.temperature.current) + " °C" : "—"}</td>
+      <td>${hours != null ? esc(hours.toLocaleString("es")) + " h" : "—"}</td>
       <td>${esc(wear)}</td><td>${esc(realloc)}</td>
       <td class="muted">${esc(test)}</td>
       <td><div class="actions" style="margin:0">
         <button data-dev="${esc(name)}" data-type="short">Test corto</button>
         <button data-dev="${esc(name)}" data-type="long">Test largo</button></div></td></tr>`;
   });
-  $("smart").innerHTML = `<tr><th>Disco</th><th>Salud</th><th>Temp.</th><th>Encendido</th><th>Desgaste</th>
-    <th>Sectores reasignados</th><th>Último test</th><th></th></tr>` + rows.join("");
-  $("smart").querySelectorAll("button").forEach((b) => (b.onclick = () => {
-    const {dev, type} = b.dataset;
-    if (confirm(`¿Lanzar un test SMART ${type === "long" ? "largo (puede tardar más de una hora)" : "corto (unos 2 minutos)"} en ${dev}? Solo lee el disco.`))
-      act({do: "smart", dev, type}, b);
-  }));
+  setHTML($("smart"), `<tr><th>Disco</th><th>Salud</th><th>Temp.</th><th>Encendido</th><th>Desgaste</th>
+    <th>Sectores reasignados</th><th>Último test</th><th></th></tr>` + rows.join(""));
 }
 
 async function load() {
@@ -322,10 +328,56 @@ async function load() {
       fetch("smart.json", {cache: "no-store"}).then((r) => r.json()).catch(() => []),
     ]);
     renderStatus(s); renderSmart(m);
-  } catch (e) { $("updated").textContent = "Esperando datos… (el primer arranque tarda ~1 min)"; }
+  } catch (e) {
+    $("updated").innerHTML = pill("bad", "No se pueden leer los datos") +
+      ' <span class="muted">(si la app acaba de arrancar, espera un minuto; si no, recarga la página)</span>';
+  }
 }
-// --- Configuracion de EarlyOOM ---
+
+// --- Botones (delegacion: un solo manejador por zona, aunque los botones se regeneren)
+const on = (id, fn) => $(id).addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && !b.disabled) fn(b); });
+on("swap", (b) => {
+  const p = JSON.parse(b.dataset.apply || "null");
+  if (p && confirm("¿Volver a aplicar la configuración guardada?")) act(p, b);
+});
+on("zram-pct", (b) => zramAct(b.dataset.pct, S.zram.on ? S.zram.algo : S.zram.target_algo, b));
+on("zram-algo", (b) => zramAct(S.zram.on ? Math.round((S.zram.size / S.mem.total) * 4) * 25 || 75 : 75, b.dataset.algo, b));
+function zramAct(p, algo, btn) {
+  const what = p == 0 ? "apagar el zram" : `poner el zram en ${p} % de la RAM con ${algo}`;
+  if (confirm(`¿${what[0].toUpperCase() + what.slice(1)}? Antes hay que vaciarlo: si no queda RAM de sobra, se cancelará sin tocar nada. Puede tardar un poco.`))
+    act({do: "zram", pct: p, algo}, btn);
+}
+on("swap-btns", (b) => {
+  const g = b.dataset.size; if (g == null) return;
+  const msg = g == 0 ? "¿Apagar el swap del SSD? Se borrará su archivo."
+                     : `¿Poner el swap del SSD en ${g} GB? Puede tardar unos segundos.`;
+  if (confirm(msg)) act({do: "swap", size: g}, b);
+});
+on("smart", (b) => {
+  const {dev, type} = b.dataset;
+  if (confirm(`¿Lanzar un test SMART ${type === "long" ? "largo (puede tardar más de una hora)" : "corto (unos 2 minutos)"} en ${dev}? Solo lee el disco.`))
+    act({do: "smart", dev, type}, b);
+});
+$("btn-remount").onclick = (e) => act({do: "remount"}, e.target);
+$("btn-trash").onclick = (e) => {
+  if (confirm(`¿Vaciar la papelera? Se borrarán para siempre ${S.trash.items} elementos (${fmt(S.trash.bytes)}). No se puede deshacer.`))
+    act({do: "trash", confirm: "yes"}, e.target);
+};
+$("oom-switch").onchange = async () => {
+  const sw = $("oom-switch");
+  if (!sw.checked && !confirm("¿Parar EarlyOOM? Sin él, si se acaba la memoria el servidor puede quedarse colgado. Seguirá parado tras reiniciar hasta que lo actives.")) {
+    sw.checked = true; return;
+  }
+  sw.disabled = true;
+  await act({do: "earlyoom", op: sw.checked ? "start" : "stop"});
+  sw.disabled = false;
+};
+$("btn-oom-restart").onclick = (e) => act({do: "earlyoom", op: "restart"}, e.target);
+
+// --- Configuracion de EarlyOOM: no se pisa el formulario mientras se edita
 let eoDirty = false;
+const RECOMMENDED = {mem: 10, swap: 10, avoid: "systemd dockerd containerd sshd tailscaled node python3 MainThread",
+                     prefer: "immich immich-api", ignore: "", dryrun: false};
 const toList = (s) => s.split(/[\s,]+/).filter(Boolean).join(", ");
 const fromList = (s) => s.split(/[\s,]+/).filter(Boolean).join(",");
 function fillEo(c) {
@@ -335,26 +387,23 @@ function fillEo(c) {
 }
 $("eo-form").addEventListener("input", () => (eoDirty = true));
 $("eo-recommended").onclick = () => {
-  fillEo({mem: 10, swap: 10, avoid: "systemd dockerd containerd sshd tailscaled node python3 MainThread",
-          prefer: "immich immich-api", ignore: "", dryrun: false});
-  eoDirty = true;
+  fillEo(RECOMMENDED); eoDirty = true;
   toast("Recomendada rellenada: revísala y pulsa Guardar para aplicarla.");
 };
-$("eo-save").onclick = (e) => {
+$("eo-save").onclick = async (e) => {
   if (!$("eo-form").reportValidity()) return;
   const p = {do: "earlyoom", op: "config", mem: $("eo-mem").value, swap: $("eo-swap").value,
     avoid: fromList($("eo-avoid").value), prefer: fromList($("eo-prefer").value),
     ignore: fromList($("eo-ignore").value), dryrun: $("eo-dryrun").checked ? 1 : 0};
   if (!confirm("¿Guardar esta configuración? EarlyOOM se reiniciará con ella (unos segundos).")) return;
-  eoDirty = false; act(p, e.target);
+  if ((await act(p, e.target)).ok) eoDirty = false;   // si falla, se conserva lo escrito
 };
-$("eo-reset").onclick = (e) => {
-  if (!confirm("¿Volver a la configuración por defecto? EarlyOOM se reiniciará.")) return;
-  eoDirty = false; act({do: "earlyoom", op: "reset"}, e.target);
+$("eo-reset").onclick = async (e) => {
+  if (!confirm("¿Volver a la configuración por defecto (la recomendada)? EarlyOOM se reiniciará.")) return;
+  if ((await act({do: "earlyoom", op: "reset"}, e.target)).ok) eoDirty = false;
 };
 
 load(); setInterval(load, 30000);
-$("btn-remount").onclick = (e) => act({do: "remount"}, e.target);
 </script>
 </body>
 </html>

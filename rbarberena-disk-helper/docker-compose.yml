@@ -8,7 +8,8 @@ services:
       APP_PORT: 8790
 
   disk-helper:
-    image: debian:trixie-slim
+    # Imagen fijada (como las apps oficiales): una actualizacion de Umbrel no trae otra Debian sin querer
+    image: debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
     restart: unless-stopped
     # Necesario para montar el SSD y vigilar la memoria y los discos del SERVIDOR.
     # Da acceso root total al host: revisar lib.sh y cgi-bin/action antes de cambiar nada.

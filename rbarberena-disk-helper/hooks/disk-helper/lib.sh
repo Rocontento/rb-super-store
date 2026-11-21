@@ -1,28 +1,46 @@
-# Funciones compartidas por start.sh y cgi-bin/action.
+# Funciones compartidas por start.sh y cgi-bin/action. Debian /bin/sh es dash: solo POSIX sh.
 # "host" ejecuta un comando en los montajes del servidor (requiere privileged + pid: host).
 UUID=2c939876-220a-42f8-bb43-14e79be7d9ad
 MNT=/home/umbrel/umbrel/external/SSD
 HOME_LINK=/home/umbrel/umbrel/home/SSD
-TRASH=/home/umbrel/umbrel/trash
-TRASH_META=/home/umbrel/umbrel/trash-meta
 LOG=/data/earlyoom.log
 OOM_OFF=/data/earlyoom-off   # si existe, EarlyOOM se queda parado (interruptor del panel)
+TEST_MARK=/tmp/dh-test       # lo crea start.sh con DH_TEST=1 (contenedor de prueba)
 
-# Configuracion de EarlyOOM (panel) en /data/earlyoom.conf, lineas clave=valor:
+host() { nsenter -t 1 -m -- "$@"; }
+host_net() { nsenter -t 1 -m -n -- "$@"; }   # con la red del servidor (para hablar con umbreld)
+
+# Contenedor de prueba: nada de lo que cambia el servidor se ejecuta.
+live() { [ ! -e "$TEST_MARK" ] || { echo "Modo prueba: no se cambia nada en el servidor."; return 1; }; }
+
+# El EarlyOOM de ESTE contenedor (con pid: host, pgrep/pkill sin --ns verian los de otros contenedores)
+eo_pids() { pgrep --ns $$ --nslist mnt -x earlyoom; }
+eo_kill() { pkill --ns $$ --nslist mnt -x earlyoom; }
+
+kb() { awk -v k="$1" '$1 == k":" {print $2}' /proc/meminfo; }
+
+# ---------------------------------------------------------------- EarlyOOM
+# Configuracion (panel) en /data/earlyoom.conf, lineas clave=valor:
 #   mem, swap = % minimo libre (SIGTERM; SIGKILL a la mitad)
 #   avoid / ignore / prefer = nombres de proceso (comm, max 15) separados por espacios
 #   dryrun = 1 para solo registrar, sin cerrar nada
-# Sin archivo = lo de siempre. Se valida al leer, asi un archivo roto nunca rompe EarlyOOM.
+# Sin archivo = valores por defecto. Se valida al leer: un archivo roto nunca rompe EarlyOOM.
+# Por defecto se protege lo critico por su nombre real: umbreld y Matter Hub son "node",
+# Home Assistant es "python3", Matter Server es "MainThread". Immich se cierra primero.
 EO_CONF=/data/earlyoom.conf
-EO_DEFAULT_AVOID="init systemd dockerd containerd umbreld sshd"
+EO_DEFAULT_AVOID="systemd dockerd containerd sshd tailscaled node python3 MainThread"
+EO_DEFAULT_PREFER="immich immich-api"
 
 eo_get() { sed -n "s/^$1=//p" "$EO_CONF" 2>/dev/null | head -1; }
-eo_valid_names() { echo "$1" | grep -Eq '^([A-Za-z0-9._-]{1,15}( |$))*$'; }
+eo_valid_names() { printf '%s\n' "$1" | grep -Eqx '([A-Za-z0-9._-]{1,15}( |$))*'; }
 
 eo_load() {
-  eo_mem=$(eo_get mem); eo_swap=$(eo_get swap); eo_dryrun=$(eo_get dryrun)
-  eo_avoid=$(eo_get avoid); eo_ignore=$(eo_get ignore); eo_prefer=$(eo_get prefer)
-  [ -e "$EO_CONF" ] || eo_avoid=$EO_DEFAULT_AVOID
+  if [ -e "$EO_CONF" ]; then
+    eo_mem=$(eo_get mem); eo_swap=$(eo_get swap); eo_dryrun=$(eo_get dryrun)
+    eo_avoid=$(eo_get avoid); eo_ignore=$(eo_get ignore); eo_prefer=$(eo_get prefer)
+  else
+    eo_mem=10; eo_swap=10; eo_dryrun=0; eo_avoid=$EO_DEFAULT_AVOID; eo_ignore=""; eo_prefer=$EO_DEFAULT_PREFER
+  fi
   case "$eo_mem" in [1-9]|[1-4][0-9]|50) ;; *) eo_mem=10 ;; esac
   case "$eo_swap" in [1-9]|[1-9][0-9]|100) ;; *) eo_swap=10 ;; esac
   [ "$eo_dryrun" = 1 ] || eo_dryrun=0
@@ -32,7 +50,7 @@ eo_load() {
 }
 
 # "a b.c" -> ^(a|b\.c)$
-eo_regex() { printf '^(%s)$' "$(echo "$1" | sed 's/\./\\./g; s/ /|/g')"; }
+eo_regex() { printf '^(%s)$' "$(printf '%s\n' "$1" | sed 's/\./\\./g; s/ /|/g')"; }
 
 run_earlyoom() {
   eo_load
@@ -40,18 +58,33 @@ run_earlyoom() {
   [ -n "$eo_avoid" ] && set -- "$@" --avoid "$(eo_regex "$eo_avoid")"
   [ -n "$eo_ignore" ] && set -- "$@" --ignore "$(eo_regex "$eo_ignore")"
   [ -n "$eo_prefer" ] && set -- "$@" --prefer "$(eo_regex "$eo_prefer")"
-  [ "$eo_dryrun" = 1 ] && set -- "$@" --dryrun
+  # En el contenedor de prueba EarlyOOM nunca cierra nada de verdad
+  if [ "$eo_dryrun" = 1 ] || [ -e "$TEST_MARK" ]; then set -- "$@" --dryrun; fi
   earlyoom "$@"
 }
 
-host() { nsenter -t 1 -m -- "$@"; }
+# ¿Cabe en RAM lo que vuelve de un swap al vaciarlo, dejando margen sobre el umbral de EarlyOOM?
+# $1 = KB que vuelven, $2 = KB libres en otro swap. Exige que queden libres 2 x el umbral de RAM,
+# para que apagar swap/zram no provoque que EarlyOOM cierre procesos (p. ej. Home Assistant).
+fits() {
+  eo_load
+  [ $(( $(kb MemAvailable) + ${2:-0} - $1 )) -gt $(( $(kb MemTotal) * eo_mem * 2 / 100 )) ]
+}
+fits_msg() {  # $1 = que se vacia, $2 = KB que vuelven
+  echo "No se cambia: $1 tiene $(( $2 / 1024 )) MB dentro y vaciarlo dejaría la RAM demasiado justa (hay $(( $(kb MemAvailable) / 1024 )) MB libres; EarlyOOM empezaría a cerrar procesos). Activa antes el swap del SSD o espera a que baje el uso."
+}
 
+# ---------------------------------------------------------------- SSD
 # Monta el SSD en External/SSD y lo enlaza en Home/SSD para que salga en Files.
+# Los dos puntos de montaje vacios son inmutables: si el SSD falta, nadie escribe ahi (iria al NVMe).
 mount_ssd() {
+  live || return 1
   if host mountpoint -q "$MNT"; then
     echo "SSD ya estaba montado."
   elif host test -e "/dev/disk/by-uuid/$UUID"; then
-    host mkdir -p "$MNT" && host mount -o noatime "UUID=$UUID" "$MNT" || { echo "ERROR al montar el SSD."; return 1; }
+    host test -d "$MNT" || host mkdir -p "$MNT"
+    host chattr +i "$MNT"
+    host mount -o noatime "UUID=$UUID" "$MNT" || { echo "ERROR al montar el SSD."; return 1; }
     echo "SSD montado."
   else
     echo "ERROR: no se encuentra el SSD ($UUID)."; return 1
@@ -63,28 +96,29 @@ mount_ssd() {
   fi
   if ! host mountpoint -q "$HOME_LINK"; then
     host test -d "$HOME_LINK" || host install -d -o 1000 -g 1000 "$HOME_LINK"
-    # Inmutable mientras no este montado: si el SSD falta, nadie escribe ahi (iria al NVMe)
     host chattr +i "$HOME_LINK"
     host mount --bind "$MNT/datos" "$HOME_LINK" || { echo "ERROR al enlazar Home/SSD."; return 1; }
     echo "Enlazado en Files como Home/SSD."
   fi
 }
 
-# Swap en archivo dentro del SSD (fuera de datos/, no se ve en Files).
-# Tamano deseado en GB guardado en /data/swap-size (0 = apagado). Prioridad 10: detras del zram (100).
+# ---------------------------------------------------------------- Swap en el SSD
+# Archivo en la raiz del SSD (fuera de datos/, no se ve en Files). Tamano en GB en /data/swap-size
+# (0 = apagado). Sin archivo = no se toca nada. Prioridad 10: detras del zram (100).
 SWAPFILE=$MNT/swapfile
 SWAPCONF=/data/swap-size
 GB=1073741824
 
 apply_swap() {
-  size=$(cat "$SWAPCONF" 2>/dev/null || echo 0)
-  if grep -q "^$SWAPFILE " /proc/swaps; then
+  live || return 1
+  [ -e "$SWAPCONF" ] || { echo "Swap del SSD sin configurar; no se toca."; return 0; }
+  size=$(cat "$SWAPCONF")
+  case "$size" in 0|2|4|8) ;; *) echo "ERROR: $SWAPCONF no es válido ($size); no se toca el swap."; return 1 ;; esac
+  if grep -q "^$SWAPFILE[[:space:]]" /proc/swaps; then
     [ "$(host stat -c %s "$SWAPFILE")" = "$((size * GB))" ] && { echo "Swap del SSD ya activo ($size GB)."; return 0; }
-    # Antes de apagarlo: lo que tenga dentro tiene que caber en la RAM libre
     used_kb=$(awk -v f="$SWAPFILE" '$1 == f {print $4}' /proc/swaps)
-    avail_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
-    [ "$used_kb" -lt $((avail_kb * 8 / 10)) ] ||
-      { echo "No se apaga: el swap del SSD tiene $((used_kb / 1024)) MB y solo hay $((avail_kb / 1024)) MB de RAM libre."; return 1; }
+    other_kb=$(awk -v f="$SWAPFILE" 'NR > 1 && $1 != f {s += $3 - $4} END {print s + 0}' /proc/swaps)
+    fits "$used_kb" "$other_kb" || { fits_msg "el swap del SSD" "$used_kb"; return 1; }
     host swapoff "$SWAPFILE" || { echo "ERROR: no se pudo desactivar el swap del SSD."; return 1; }
   fi
   if [ "$size" = 0 ]; then
@@ -97,26 +131,32 @@ apply_swap() {
     host fallocate -l "${size}G" "$SWAPFILE" && host chmod 600 "$SWAPFILE" && host mkswap -q "$SWAPFILE" >/dev/null ||
       { echo "ERROR creando el archivo de swap."; return 1; }
   fi
-  host swapon -p 10 "$SWAPFILE" && echo "Swap del SSD activo: $size GB (detras del zram)."
+  host swapon -p 10 "$SWAPFILE" || { echo "ERROR activando el swap del SSD."; return 1; }
+  echo "Swap del SSD activo: $size GB (detras del zram)."
 }
 
-# zram: "PCT ALGO" en /data/zram.conf (PCT 0 = apagado). Sin archivo = lo que pone Umbrel (75 zstd)
+# ---------------------------------------------------------------- zram
+# "PCT ALGO" en /data/zram.conf (PCT 0 = apagado). Sin archivo = lo que pone Umbrel (75 zstd)
 # y la app no lo toca nunca.
 ZRAMCONF=/data/zram.conf
 ZDEV=/sys/block/zram0
 
 zram_target() { cat "$ZRAMCONF" 2>/dev/null || echo "75 zstd"; }
+zram_valid() { case "$1" in "0 "*|"25 "*|"50 "*|"75 "*|"100 "*) ;; *) return 1 ;; esac
+               case "$1" in *" zstd"|*" lz4") ;; *) return 1 ;; esac; }
 
-# Configura zram0 (lo que pone Umbrel)
 zram_setup() {  # $1 = bytes, $2 = algoritmo
   echo 1 > $ZDEV/reset && echo "$2" > $ZDEV/comp_algorithm && echo "$1" > $ZDEV/disksize &&
     host mkswap -q /dev/zram0 >/dev/null && host swapon -p 100 /dev/zram0
 }
 
 apply_zram() {
-  set -- $(zram_target); pct=$1; algo=$2
+  live || return 1
+  target=$(zram_target)
+  zram_valid "$target" || { echo "ERROR: $ZRAMCONF no es válido ($target); no se toca el zram."; return 1; }
+  set -- $target; pct=$1; algo=$2
   [ -e $ZDEV ] || { echo "ERROR: no existe zram0."; return 1; }
-  total=$(awk '/^MemTotal:/ {print $2 * 1024}' /proc/meminfo)
+  total=$(( $(kb MemTotal) * 1024 ))
   want=$((total / 100 * pct))
   on=0; grep -q '^/dev/zram0[[:space:]]' /proc/swaps && on=1
 
@@ -128,14 +168,11 @@ apply_zram() {
     [ "$cur_algo" = "$algo" ] && [ "$diff" -ge -64 ] && [ "$diff" -le 64 ] && { echo "zram ya está así ($pct %, $algo)."; return 0; }
   fi
 
-  # Para cambiarlo hay que vaciarlo: lo que tiene dentro debe caber en RAM libre + otro swap libre
+  # Para cambiarlo hay que vaciarlo: lo que tiene dentro debe caber con margen
   if [ $on = 1 ]; then
     used_kb=$(awk '$1 == "/dev/zram0" {print $4}' /proc/swaps)
-    avail_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
     other_kb=$(awk 'NR > 1 && $1 != "/dev/zram0" {s += $3 - $4} END {print s + 0}' /proc/swaps)
-    [ "$used_kb" -lt $(( (avail_kb + other_kb) * 8 / 10 )) ] || {
-      echo "No se cambia: el zram tiene $((used_kb / 1024)) MB dentro y no hay sitio para vaciarlo (RAM libre $((avail_kb / 1024)) MB, otro swap libre $((other_kb / 1024)) MB). Activa antes el swap del SSD."
-      return 1; }
+    fits "$used_kb" "$other_kb" || { fits_msg "el zram" "$used_kb"; return 1; }
     host swapoff /dev/zram0 || { echo "ERROR al vaciar el zram; no se ha cambiado nada."; return 1; }
   fi
 
@@ -148,57 +185,74 @@ apply_zram() {
   fi
 }
 
-# Discos fisicos: "nombre transporte" (sata, nvme, usb)
-list_disks() { host lsblk -dno NAME,TRAN | awk '$2 != "" {print $1, $2}'; }
-
-# SMART de todos los discos -> /www/smart.json
-smart_scan() {
-  list_disks | while read -r name tran; do
-    opt=""; [ "$tran" = usb ] && opt="-d scsi"   # el puente USB del Seagate solo acepta scsi
-    smartctl -j -a $opt "/dev/$name" | jq -c --arg n "$name" --arg t "$tran" '{name: $n, tran: $t, data: .}'
-  done | jq -s . > /www/smart.json.tmp && mv /www/smart.json.tmp /www/smart.json
+# ---------------------------------------------------------------- Papelera
+# Por la via oficial (umbreld), igual que el boton de Files: tambien actualiza su indice.
+empty_trash() {
+  live || return 1
+  out=$(host_net /usr/local/bin/umbreld client files.emptyTrash.mutate 2>&1) ||
+    { echo "ERROR: Umbrel no pudo vaciar la papelera: $(printf '%s' "$out" | tail -1)"; return 1; }
+  echo "Papelera vaciada."
 }
 
-# Estado general -> /www/status.json
+# ---------------------------------------------------------------- SMART y discos
+# Discos fisicos: "nombre transporte" (sata, nvme, usb). Se leen del host para ver tambien
+# discos USB conectados despues de arrancar el contenedor.
+list_disks() { host lsblk -dno NAME,TRAN | awk '$2 != "" {print $1, $2}'; }
+smart_opt() { [ "$1" = usb ] && echo "-d scsi"; }   # el puente USB del Seagate solo acepta scsi
+
+# SMART de todos los discos -> /www/smart.json. -n standby: no despierta discos en reposo.
+smart_scan() {
+  list_disks | while read -r name tran; do
+    host /usr/sbin/smartctl -j -n standby -a $(smart_opt "$tran") "/dev/$name" |
+      jq -c --arg n "$name" --arg t "$tran" '{name: $n, tran: $t, data: .}'
+  done | jq -s . > /www/smart.json.$$ && mv /www/smart.json.$$ /www/smart.json
+}
+
+# ---------------------------------------------------------------- Estado -> /www/status.json
 collect() {
-  mounts=$( (echo /data; host findmnt -rno TARGET | grep '^/home/umbrel/umbrel/external/[^/]*$') | sort -u)
-  disks=$(host df -B1 --output=source,size,used,target $mounts 2>/dev/null | tail -n +2 |
-    jq -R -s -c 'split("\n") | map(select(length > 0) | split(" ") | map(select(length > 0))
-      | {source: .[0], size: (.[1] | tonumber), used: (.[2] | tonumber), target: .[3]})')
+  disks=$(host findmnt -Jbl -o SOURCE,SIZE,USED,TARGET | jq -c '[.filesystems[]
+    | select(.target == "/data" or (.target | test("^/home/umbrel/umbrel/external/[^/]+$")))
+    | .source |= sub("\\[.*"; "")] | unique_by(.target)')
   mem=$(awk '{v[$1] = $2 * 1024} END {printf "{\"total\":%d,\"avail\":%d,\"swap_total\":%d,\"swap_free\":%d}",
     v["MemTotal:"], v["MemAvailable:"], v["SwapTotal:"], v["SwapFree:"]}' /proc/meminfo)
   top=$(ps -eo rss=,comm= --sort=-rss | head -8 |
     jq -R -s -c 'split("\n") | map(select(length > 0) | capture("^ *(?<rss>[0-9]+) +(?<name>.+)$") | {name, bytes: ((.rss | tonumber) * 1024)})')
-  oom=$(grep -h "sending SIG[A-Z]* to process" "$LOG" 2>/dev/null | tail -15 | jq -R -s -c 'split("\n") | map(select(length > 0)) | reverse')
+  oom=$(grep -h "sending SIG[A-Z]* to process\|would have killed\|dry run" "$LOG" 2>/dev/null | tail -15 |
+    jq -R -s -c 'split("\n") | map(select(length > 0)) | reverse')
   swaps=$(tail -n +2 /proc/swaps | jq -R -s -c 'split("\n") | map(select(length > 0) | [splits("\\s+")]
     | {name: .[0], size: ((.[2] | tonumber) * 1024), used: ((.[3] | tonumber) * 1024), prio: (.[4] | tonumber)})')
-  zram=$(jq -n -c --arg algo "$(sed 's/.*\[\(.*\)\].*/\1/' /sys/block/zram0/comp_algorithm 2>/dev/null)" \
-    --argjson size "$(cat /sys/block/zram0/disksize 2>/dev/null || echo 0)" \
+  ztarget=$(zram_target); zram_valid "$ztarget" || ztarget="75 zstd"
+  zram=$(jq -n -c --arg algo "$(sed 's/.*\[\(.*\)\].*/\1/' $ZDEV/comp_algorithm 2>/dev/null)" \
+    --argjson size "$(cat $ZDEV/disksize 2>/dev/null || echo 0)" \
     --argjson swappiness "$(cat /proc/sys/vm/swappiness)" \
     --argjson on "$(grep -q '^/dev/zram0[[:space:]]' /proc/swaps && echo true || echo false)" \
     --argjson custom "$([ -e "$ZRAMCONF" ] && echo true || echo false)" \
-    --arg target "$(zram_target)" \
+    --arg target "$ztarget" \
     '{algo: $algo, size: $size, swappiness: $swappiness, on: $on, custom: $custom,
       pct: ($target | split(" ")[0] | tonumber), target_algo: ($target | split(" ")[1])}')
+  # Swap del SSD: lo configurado (null = sin configurar) y lo real se envian por separado
+  swap_conf=$(cat "$SWAPCONF" 2>/dev/null); case "$swap_conf" in 0|2|4|8) ;; *) swap_conf=null ;; esac
   eo_load
   eo_cfg=$(jq -n -c --argjson mem "$eo_mem" --argjson swap "$eo_swap" --arg avoid "$eo_avoid" --arg ignore "$eo_ignore" \
     --arg prefer "$eo_prefer" --argjson dryrun "$([ "$eo_dryrun" = 1 ] && echo true || echo false)" \
     --argjson custom "$([ -e "$EO_CONF" ] && echo true || echo false)" \
     '{mem: $mem, swap: $swap, avoid: $avoid, ignore: $ignore, prefer: $prefer, dryrun: $dryrun, custom: $custom}')
-  trash_bytes=$(host du -sb "$TRASH" 2>/dev/null | cut -f1)
-  trash_items=$(host ls -A "$TRASH" 2>/dev/null | wc -l)
+  trash_bytes=$(host du -sb /home/umbrel/umbrel/trash 2>/dev/null | cut -f1)
+  trash_items=$(host ls -A /home/umbrel/umbrel/trash 2>/dev/null | wc -l)
   jq -n -c \
-    --arg time "$(date '+%Y-%m-%d %H:%M:%S')" \
+    --arg time "$(date '+%Y-%m-%d %H:%M:%S')" --argjson epoch "$(date +%s)" \
+    --argjson test "$([ -e "$TEST_MARK" ] && echo true || echo false)" \
     --argjson disks "${disks:-[]}" --argjson mem "$mem" --argjson top "${top:-[]}" --argjson oom "${oom:-[]}" \
     --argjson ssd "$(host mountpoint -q "$MNT" && echo true || echo false)" \
     --argjson link "$(host mountpoint -q "$HOME_LINK" && echo true || echo false)" \
-    --argjson earlyoom "$(pgrep -x earlyoom >/dev/null && echo true || echo false)" \
+    --argjson earlyoom "$(eo_pids >/dev/null && echo true || echo false)" \
     --argjson earlyoom_off "$([ -e "$OOM_OFF" ] && echo true || echo false)" \
     --argjson trash_bytes "${trash_bytes:-0}" --argjson trash_items "${trash_items:-0}" \
-    --argjson swaps "${swaps:-[]}" --argjson zram "$zram" --argjson swap_conf "$(cat "$SWAPCONF" 2>/dev/null || echo 0)" \
+    --argjson swaps "${swaps:-[]}" --argjson zram "$zram" --argjson swap_conf "$swap_conf" \
     --argjson eo_cfg "$eo_cfg" \
-    '{time: $time, ssd_mounted: $ssd, home_link: $link, earlyoom: $earlyoom, earlyoom_off: $earlyoom_off, disks: $disks,
+    '{time: $time, epoch: $epoch, test: $test, ssd_mounted: $ssd, home_link: $link,
+      earlyoom: $earlyoom, earlyoom_off: $earlyoom_off, disks: $disks,
       mem: $mem, top: $top, oom: $oom, trash: {bytes: $trash_bytes, items: $trash_items},
       swaps: $swaps, zram: $zram, swap_conf: $swap_conf, earlyoom_cfg: $eo_cfg}' \
-    > /www/status.json.tmp && mv /www/status.json.tmp /www/status.json
+    > /www/status.json.$$ && mv /www/status.json.$$ /www/status.json
 }
