@@ -1,0 +1,58 @@
+manifestVersion: 1.1
+id: rbarberena-atvloadly
+name: atvloadly
+tagline: Instala apps en tu Apple TV y las vuelve a firmar sola cada 7 días
+category: developer
+version: "0.8.6"
+port: 5533
+description: >-
+  atvloadly es como Sideloadly, pero vive en tu Umbrel en lugar de en tu Mac.
+  Desde la web emparejas el Apple TV por wifi, subes un .ipa, pones tu cuenta
+  de Apple y la app se instala. Antes de que caduque la firma, atvloadly la
+  renueva sola, sin que tengas que encender ningún ordenador.
+
+
+  Cómo empezar
+
+
+  1. En el Apple TV, ve a Ajustes → Mandos y dispositivos → App Remote y
+     dispositivos, y déjalo en esa pantalla.
+
+  2. Abre atvloadly: el Apple TV debería aparecer en la lista. Empareja
+     introduciendo el código que sale en la tele.
+
+  3. Añade tu cuenta de Apple, sube el .ipa e instálalo.
+
+
+  Avisos importantes
+
+
+  - Con una cuenta de Apple gratuita las apps caducan a los 7 días (atvloadly
+    las renueva solo), solo puedes tener 3 apps activas a la vez y registrar
+    10 por semana. Con la cuenta de desarrollador de pago duran un año.
+
+  - Tras actualizar tvOS hay que volver a emparejar el Apple TV. Las versiones
+    de tvOS recién publicadas pueden tardar en estar soportadas.
+
+  - Usa una cuenta de Apple secundaria si puedes: atvloadly guarda la sesión
+    en el disco de esta app para poder renovar las firmas.
+
+  - Si el Apple TV no aparece, comprueba que está en la misma red que el
+    Umbrel y en la pantalla de emparejamiento.
+developer: bitxeno
+website: https://github.com/bitxeno/atvloadly
+submitter: Rocontento
+submission: https://github.com/Rocontento/rb-super-store
+repo: https://github.com/bitxeno/atvloadly
+support: https://github.com/bitxeno/atvloadly/issues
+dependencies: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+icon: https://raw.githubusercontent.com/bitxeno/atvloadly/master/docs/preview/logo.png
+gallery:
+  - https://raw.githubusercontent.com/bitxeno/atvloadly/master/docs/preview/home.png
+  - https://raw.githubusercontent.com/bitxeno/atvloadly/master/docs/preview/install.png
+releaseNotes: >-
+  Primera versión de atvloadly empaquetada para Umbrel, anclada a la v0.8.6
+  por digest.

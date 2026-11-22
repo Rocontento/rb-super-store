@@ -1,0 +1,26 @@
+services:
+  app_proxy:
+    environment:
+      # Format: <app-id>_<docker-service-name>_1
+      APP_HOST: rbarberena-atvloadly_atvloadly_1
+      APP_PORT: 80
+
+  atvloadly:
+    # Pinned by digest: re-signing runs unattended, so an in-place `latest`
+    # must not change what's running without a deliberate version bump here.
+    image: bitxeno/atvloadly:v0.8.6@sha256:393f7599f9d7976a53d6521ac4034737c5aaf8b7cf9889fe3155620787615d9a
+    restart: unless-stopped
+    # Shown to the Apple TV as the pairing host name.
+    hostname: atvloadly
+    # Upstream requirement (README). If the Apple TV is never found, the README
+    # suggests `privileged: true` instead.
+    security_opt:
+      - seccomp:unconfined
+    ulimits:
+      core: 0
+    volumes:
+      # Apple ID sessions, pairing records, IPAs and the refresh schedule.
+      - ${APP_DATA_DIR}/data:/data
+      # Apple TV discovery goes through the host's avahi-daemon over D-Bus.
+      - /var/run/dbus:/var/run/dbus
+      - /var/run/avahi-daemon:/var/run/avahi-daemon
