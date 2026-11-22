@@ -3,7 +3,7 @@ id: rbarberena-aiolivetv
 name: AIOLiveTV
 tagline: Tu IPTV (Xtream Codes o M3U) como addon de Stremio, con guía de programación
 category: media
-version: "1.9.0"
+version: "1.9.0-2"
 port: 8297
 description: >-
   AIOLiveTV convierte tu suscripción de IPTV en un addon de Stremio: canales
@@ -35,6 +35,14 @@ description: >-
   Avisos importantes
 
 
+  - Para entrar en la configuración usa el usuario y contraseña que Umbrel
+    muestra en la información de esta app.
+
+  - Todo pasa por Cloudflare WARP (la lista de canales y el vídeo), para
+    saltar los bloqueos de los operadores españoles. Por eso el vídeo va
+    Apple TV → Umbrel → WARP → proveedor, y el Umbrel tiene que estar
+    encendido para ver la tele.
+
   - Al guardar se crea un UUID y una contraseña: apunta los dos, no se pueden
     recuperar y sin ellos no podrás volver a editar la configuración.
 
@@ -54,10 +62,15 @@ repo: https://github.com/mrcanelas/aiolivetv
 support: https://github.com/mrcanelas/aiolivetv/issues
 dependencies: []
 path: "/stremio/configure"
-defaultUsername: ""
-defaultPassword: ""
+defaultUsername: "umbrel"
+defaultPassword: "$APP_PASSWORD"
 icon: https://raw.githubusercontent.com/mrcanelas/aiolivetv/HEAD/branding/SVG/Logo%20Gradient.svg
 gallery: []
 releaseNotes: >-
+  La lista de canales y el vídeo pasan por Cloudflare WARP, para que tu
+  proveedor de IPTV funcione aunque tu operador lo bloquee. La configuración
+  ahora pide usuario y contraseña (los ves en la información de la app).
+
+
   Primera versión de AIOLiveTV empaquetada para Umbrel, anclada a la v1.9.0
   por digest.
