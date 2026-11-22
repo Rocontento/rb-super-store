@@ -1,0 +1,33 @@
+services:
+  app_proxy:
+    environment:
+      # Format: <app-id>_<docker-service-name>_1
+      APP_HOST: rbarberena-torrserver_torrserver_1
+      APP_PORT: 8090
+
+  torrserver:
+    image: ghcr.io/yourok/torrserver:MatriX.151@sha256:6adc851f5ce2f523b6b95998f1fdb1e172deef1c001c1419abcdc5788d77be5a
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Madrid
+    # Published on the host, not only behind app_proxy: the Apple TV plays
+    # straight from here and can't pass Umbrel's login.
+    ports:
+      - "8293:8090"
+    volumes:
+      - ${APP_DATA_DIR}/data/config:/opt/ts/config
+
+  addon:
+    image: node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
+    restart: unless-stopped
+    # Zero-dependency script shipped with the app, so no image to build.
+    command: ["node", "/app/server.js"]
+    environment:
+      - PORT=8294
+      # Host port TorrServer is published on (above). The addon builds stream
+      # links with the same host the client used to reach it.
+      - TORRSERVER_PORT=8293
+    ports:
+      - "8294:8294"
+    volumes:
+      - ${APP_DATA_DIR}/addon:/app:ro

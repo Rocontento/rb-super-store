@@ -1,0 +1,64 @@
+manifestVersion: 1.1
+id: rbarberena-torrserver
+name: TorrServer
+tagline: Tu propio «debrid» en casa — Torrentio sin pagar suscripción
+category: media
+version: "MatriX.151-1"
+port: 8295
+description: >-
+  Convierte tu Umbrel en lo que hace un servicio debrid: descarga los torrents
+  por trozos y los sirve como vídeo HTTP normal, que puedes adelantar y
+  atrasar. Así las apps del Apple TV sin motor de torrents (NuvioTV, Omni…)
+  pueden reproducir Torrentio sin Real-Debrid ni similares.
+
+
+  Incluye dos cosas:
+
+
+  - TorrServer, el motor de torrents. Esta app abre su panel web.
+
+  - Un addon de Stremio que pide los torrents a Torrentio y los devuelve como
+    enlaces a este TorrServer.
+
+
+  Cómo empezar
+
+
+  1. En tu app del Apple TV instala este addon (en lugar de Torrentio):
+     http://IP-DE-TU-UMBREL:8294/manifest.json
+
+  2. Si ya tienes Torrentio configurado (idiomas, calidades), copia lo que va
+     entre torrentio.strem.fun/ y /manifest.json en su URL y ponlo igual:
+     http://IP-DE-TU-UMBREL:8294/TU-CONFIG/manifest.json
+
+  3. Elige una fuente y dale a reproducir. El primer arranque tarda unos
+     segundos mientras TorrServer encuentra peers.
+
+
+  Avisos importantes
+
+
+  - Usa la IP local del Umbrel (por ejemplo 192.168.1.100), no umbrel.local:
+    algunas apps de tvOS no resuelven nombres .local.
+
+  - TorrServer (puerto 8293) y el addon (puerto 8294) quedan abiertos en tu
+    red local sin contraseña, para que el Apple TV pueda reproducir.
+
+  - Quien se conecta a los peers del torrent es tu Umbrel: tu IP pública es
+    visible en el enjambre. Tú decides qué reproduces; comprueba qué es legal
+    en tu país.
+developer: YouROK
+website: https://github.com/YouROK/TorrServer
+submitter: Rocontento
+submission: https://github.com/Rocontento/rb-super-store
+repo: https://github.com/YouROK/TorrServer
+support: https://github.com/YouROK/TorrServer/issues
+dependencies: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+icon: https://raw.githubusercontent.com/YouROK/TorrServer/master/web/public/logo.png
+gallery: []
+releaseNotes: >-
+  Primera versión: TorrServer MatriX.151 anclado por digest, más un addon de
+  Stremio propio que pasa los resultados de Torrentio por TorrServer.
