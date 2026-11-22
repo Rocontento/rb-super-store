@@ -1,0 +1,63 @@
+manifestVersion: 1.1
+id: rbarberena-aiolivetv
+name: AIOLiveTV
+tagline: Tu IPTV (Xtream Codes o M3U) como addon de Stremio, con guía de programación
+category: media
+version: "1.9.0"
+port: 8297
+description: >-
+  AIOLiveTV convierte tu suscripción de IPTV en un addon de Stremio: canales
+  en directo, categorías y guía de programación (EPG) cuando tu proveedor la
+  da. Corre en tu Umbrel, así que tu usuario y contraseña de Xtream no salen
+  de casa.
+
+
+  También puede exportar una lista M3U + XMLTV ya ordenada, que sirve para
+  Jellyfin, Infuse o cualquier app de IPTV.
+
+
+  Cómo empezar
+
+
+  1. Abre la app y ve a /stremio/configure (o directamente
+     http://192.168.1.100:8296/stremio/configure).
+
+  2. En Addons añade Xtream Codes con el servidor, usuario y contraseña de tu
+     proveedor. Si quieres, filtra por categorías para no importar miles de
+     canales.
+
+  3. Revisa en Channels que los canales se han emparejado con su guía.
+
+  4. Guarda la configuración y copia la URL del addon. Instálala en tu app del
+     Apple TV, igual que el addon de TorrServer.
+
+
+  Avisos importantes
+
+
+  - Al guardar se crea un UUID y una contraseña: apunta los dos, no se pueden
+    recuperar y sin ellos no podrás volver a editar la configuración.
+
+  - El addon queda abierto en tu red local (puerto 8296) sin login de Umbrel,
+    para que el Apple TV pueda usarlo.
+
+  - La dirección que va dentro de los enlaces es http://192.168.1.100:8296. Si
+    cambia la IP de tu Umbrel, hay que cambiarla en el docker-compose.yml.
+
+  - Que veas los canales en directo depende de que tu app del Apple TV muestre
+    catálogos de TV en directo, no solo películas y series.
+developer: mrcanelas
+website: https://github.com/mrcanelas/aiolivetv
+submitter: Rocontento
+submission: https://github.com/Rocontento/rb-super-store
+repo: https://github.com/mrcanelas/aiolivetv
+support: https://github.com/mrcanelas/aiolivetv/issues
+dependencies: []
+path: "/stremio/configure"
+defaultUsername: ""
+defaultPassword: ""
+icon: https://raw.githubusercontent.com/mrcanelas/aiolivetv/HEAD/branding/SVG/Logo%20Gradient.svg
+gallery: []
+releaseNotes: >-
+  Primera versión de AIOLiveTV empaquetada para Umbrel, anclada a la v1.9.0
+  por digest.

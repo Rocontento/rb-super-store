@@ -1,0 +1,27 @@
+services:
+  app_proxy:
+    environment:
+      # Format: <app-id>_<docker-service-name>_1
+      APP_HOST: rbarberena-aiolivetv_aiolivetv_1
+      APP_PORT: 3000
+
+  aiolivetv:
+    image: ghcr.io/mrcanelas/aiolivetv:v1.9.0@sha256:5f070362a0e6f89c309b88f9de27efbf87496e8f49f3b1597a9a3b212bc41c05
+    restart: unless-stopped
+    environment:
+      # Goes into every manifest and stream link the Apple TV receives, so it
+      # must be an address the Apple TV reaches without Umbrel's login: the
+      # published port below, on the Umbrel's LAN IP. Change it here if the
+      # Umbrel's IP ever changes.
+      - BASE_URL=http://192.168.1.100:8296
+      # Encrypts stored configs (your Xtream login) and must never change.
+      # APP_SEED is Umbrel's stable per-app 256-bit hex secret: 64 hex chars,
+      # exactly what AIOLiveTV requires.
+      - SECRET_KEY=${APP_SEED}
+      - DATABASE_URI=sqlite://./data/db.sqlite
+    # Published on the host, not only behind app_proxy: the Apple TV fetches
+    # the addon from here and can't pass Umbrel's login.
+    ports:
+      - "8296:3000"
+    volumes:
+      - ${APP_DATA_DIR}/data:/app/data
