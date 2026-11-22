@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Disk Helper</title>
+<title>Umbrel Helper</title>
 <style>
   :root {
     --bg: #0b0d12; --bg2: #11141b; --card: rgba(255,255,255,.045); --card-solid: #151922; --hover: rgba(255,255,255,.07);
@@ -211,7 +211,7 @@
           <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 15h4"/><circle cx="16.5" cy="15" r="1.2" fill="#fff"/></svg>
       </div>
       <div>
-        <h1>Disk Helper</h1>
+        <h1>Umbrel Helper</h1>
         <div class="sub muted" id="updated">Cargando…</div>
       </div>
       <div class="spacer"></div>
@@ -495,7 +495,8 @@ function render() {
   const free = ssdDisk ? fmt(ssdDisk.size - ssdDisk.used).split(" ") : null;
   setHTML($("st-ssd"), free ? `${free[0]}<small> ${free[1]} libres</small>` : "—");
   setHTML($("st-ssd-bar"), ssdDisk ? bar(ssdDisk.used, ssdDisk.size, "thin") : "");
-  setHTML($("st-ssd-foot"), s.home_link ? "En Files como Home/SSD" : "No enlazado en Files");
+  setHTML($("st-ssd-foot"), (ssdDisk ? `${fmt(ssdDisk.used)} usados de ${fmt(ssdDisk.size)} · ${Math.round(pct(ssdDisk.used, ssdDisk.size))} %<br>` : "") +
+    (s.home_link ? "En Files como Home/SSD" : "No enlazado en Files"));
   const kills = s.oom.filter((l) => /sending SIG/.test(l)).length;
   const oomPill = s.earlyoom ? pill("ok", "Activo") : s.earlyoom_off ? pill("warn", "Desactivado") : pill("bad", "Parado");
   setHTML($("st-oom-pill"), oomPill);
