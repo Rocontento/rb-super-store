@@ -18,8 +18,11 @@ services:
       - ${APP_DATA_DIR}/data/config:/opt/ts/config
 
   addon:
-    image: node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
+    # Node 24: built-in fetch honours HTTPS_PROXY with NODE_USE_ENV_PROXY.
+    image: node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
     restart: unless-stopped
+    depends_on:
+      - warp
     # Zero-dependency script shipped with the app, so no image to build.
     command: ["node", "/app/server.js"]
     environment:
@@ -27,7 +30,34 @@ services:
       # Host port TorrServer is published on (above). The addon builds stream
       # links with the same host the client used to reach it.
       - TORRSERVER_PORT=8293
+      # The addon's only outbound request is to Torrentio, which Spanish ISPs
+      # block on LaLiga match days (Cloudflare IP blocks). Going through WARP
+      # keeps that request inside Cloudflare's network. Torrent traffic itself
+      # comes from TorrServer and does not use this.
+      - NODE_USE_ENV_PROXY=1
+      - HTTPS_PROXY=http://warp:1080
     ports:
       - "8294:8294"
     volumes:
       - ${APP_DATA_DIR}/addon:/app:ro
+
+  warp:
+    # Official Cloudflare WARP client + GOST, exposing an HTTP/SOCKS5 proxy on
+    # :1080 inside the app network only (not published on the host).
+    image: caomingjun/warp:2026.8.2115.0-2.12.0@sha256:2891b92420a193a49c74cbd4387bee91f5c35fbc487fca8e8f739baed52c1d2b
+    restart: unless-stopped
+    environment:
+      - WARP_SLEEP=2
+    # /dev/net/tun for the WARP tunnel (upstream README).
+    device_cgroup_rules:
+      - "c 10:200 rwm"
+    cap_add:
+      - MKNOD
+      - AUDIT_WRITE
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    volumes:
+      # WARP registration, so it isn't re-registered on every restart.
+      - ${APP_DATA_DIR}/data/warp:/var/lib/cloudflare-warp

@@ -3,7 +3,7 @@ id: rbarberena-torrserver
 name: TorrServer
 tagline: Tu propio «debrid» en casa — Torrentio sin pagar suscripción
 category: media
-version: "MatriX.151-1"
+version: "MatriX.151-2"
 port: 8295
 description: >-
   Convierte tu Umbrel en lo que hace un servicio debrid: descarga los torrents
@@ -12,13 +12,17 @@ description: >-
   pueden reproducir Torrentio sin Real-Debrid ni similares.
 
 
-  Incluye dos cosas:
+  Incluye tres cosas:
 
 
   - TorrServer, el motor de torrents. Esta app abre su panel web.
 
   - Un addon de Stremio que pide los torrents a Torrentio y los devuelve como
     enlaces a este TorrServer.
+
+  - Cloudflare WARP, solo para la consulta a Torrentio: así sigue funcionando
+    los días de partido, cuando los operadores españoles bloquean IPs de
+    Cloudflare por orden de LaLiga. Los torrents no pasan por WARP.
 
 
   Cómo empezar
@@ -60,5 +64,10 @@ defaultPassword: ""
 icon: https://raw.githubusercontent.com/YouROK/TorrServer/master/web/public/logo.png
 gallery: []
 releaseNotes: >-
+  El addon consulta Torrentio a través de Cloudflare WARP, para que siga
+  funcionando durante los bloqueos de IPs de LaLiga. Los torrents siguen
+  saliendo por tu conexión normal.
+
+
   Primera versión: TorrServer MatriX.151 anclado por digest, más un addon de
   Stremio propio que pasa los resultados de Torrentio por TorrServer.
